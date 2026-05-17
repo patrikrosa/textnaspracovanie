@@ -1,3 +1,12 @@
+<!--
+  ╭──────────────────────────────────────────────────────────────╮
+  │                                                              │
+  │   čaute ak to niekto číta, zdravím niekoho koho to dosť      │
+  │   zaujímalo že si otvoril html zdroj,                        │
+  │   pozdravuje Patrik AKA Marty Supreme anglickej katedry      │
+  │                                                              │
+  ╰──────────────────────────────────────────────────────────────╯
+-->
 <!DOCTYPE html>
 <html lang="sk">
 <head>
@@ -5,17 +14,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Výber relevantného v občianskom vzdelávaní — interaktívne čítanie kapitoly B. Malíka (2013). Mediálna výchova, Patrik Rosa, 2026." />
   <meta name="author" content="Patrik Rosa" />
-  <meta name="theme-color" content="#08070d" />
-  <title>Výber relevantného · Malík (2013) · Mediálna výchova</title>
+  <meta name="theme-color" content="#0a1d4a" />
+  <title>Výber relevantného — Malík (2013) / Mediálna výchova</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap" />
 
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2210%22 fill=%22%23b8a4ff%22/></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2210%22 fill=%22%23ede5d2%22/></svg>" />
 </head>
-<body>
+<body data-section="hero">
 
 <svg class="svg-defs" aria-hidden="true" focusable="false">
   <defs>
@@ -24,448 +33,379 @@
       <feGaussianBlur in="noise" stdDeviation="1.4" result="noiseBlur"/>
       <feDisplacementMap in="SourceGraphic" in2="noiseBlur" scale="14" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
-    <filter id="glassRefractSoft">
-      <feTurbulence type="fractalNoise" baseFrequency="0.02 0.03" numOctaves="2" seed="3"/>
-      <feDisplacementMap in="SourceGraphic" scale="4"/>
-    </filter>
   </defs>
 </svg>
 
-<!-- Loader: čaká na fonty + SVG filtre, percentá animované, min. trvanie aby bol viditeľný -->
+<!-- Loader -->
 <div class="boot" id="boot">
   <div class="boot__inner">
-    <div class="boot__mark" aria-hidden="true">
-      <svg viewBox="0 0 80 80" width="56" height="56">
-        <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-        <circle class="boot__mark-arc" cx="40" cy="40" r="32" fill="none" stroke="url(#bootGrad)" stroke-width="2" stroke-dasharray="200" stroke-dashoffset="200" stroke-linecap="round"/>
-        <defs>
-          <linearGradient id="bootGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#b8a4ff"/>
-            <stop offset="100%" stop-color="#ff9e7a"/>
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-    <div class="boot__title">Výber relevantného</div>
-    <div class="boot__subtitle">B. Malík · 2013 — pripravujem text</div>
+    <div class="boot__brand">patrik<em>rosa</em></div>
+    <h1 class="boot__title" data-split>Výber<br/><em>relevantného</em></h1>
     <div class="boot__bar"><span id="bootFill"></span></div>
     <div class="boot__meta">
-      <span id="bootPct">0</span>
-      <span id="bootStatus">načítavam fonty</span>
+      <span id="bootStatus">načítavam typografiu</span>
+      <span><span id="bootPct">0</span>%</span>
+    </div>
+    <div class="boot__credit">
+      <em>since</em> 2013 <span>—</span> mediálna výchova / 2026
     </div>
   </div>
 </div>
 
-<!-- Pozadie: dva pomalé gradient bloby + jemná zrnitosť + progressive blur na okrajoch -->
-<div class="bg" aria-hidden="true">
-  <div class="bg__blob bg__blob--a"></div>
-  <div class="bg__blob bg__blob--b"></div>
-  <div class="bg__grain"></div>
-  <div class="bg__blur bg__blur--top"><div></div><div></div><div></div><div></div><div></div></div>
-  <div class="bg__blur bg__blur--bot"><div></div><div></div><div></div><div></div><div></div></div>
+<!-- Animated glow blob — color smoothly interpolated by JS each frame -->
+<div class="glow" id="glow" aria-hidden="true">
+  <div class="glow__a"></div>
+  <div class="glow__b"></div>
 </div>
 
-<!-- Magnetický kurzor: bodka instant, kruh sa lerpuje a snapuje na [data-magnetic] -->
+<div class="grain" aria-hidden="true"></div>
+
+<!-- Magnetic cursor -->
 <div class="cursor" id="cursor" aria-hidden="true">
   <div class="cursor__ring" id="cursorRing"></div>
   <div class="cursor__dot" id="cursorDot"></div>
 </div>
 
-<!-- Side dot navigation: minimal, na hover ukáže meno sekcie -->
-<nav class="sidenav" id="sidenav" aria-label="Sekcie">
-  <a href="#hero" data-magnetic class="sidenav__dot is-active"><span>úvod</span></a>
-  <a href="#princip" data-magnetic class="sidenav__dot"><span>princíp</span></a>
-  <a href="#filtre" data-magnetic class="sidenav__dot"><span>filtre</span></a>
-  <a href="#gramotnost" data-magnetic class="sidenav__dot"><span>gramotnosť</span></a>
-  <a href="#hranice" data-magnetic class="sidenav__dot"><span>hranice</span></a>
-  <a href="#reflektor" data-magnetic class="sidenav__dot"><span>reflektor</span></a>
-  <a href="#lievik" data-magnetic class="sidenav__dot"><span>lievik</span></a>
-  <a href="#aspekty" data-magnetic class="sidenav__dot"><span>dva aspekty</span></a>
-  <a href="#zaver" data-magnetic class="sidenav__dot"><span>záver</span></a>
+<!-- Top bar -->
+<header class="top">
+  <button class="top__menu" id="menuBtn" data-magnetic aria-label="Otvoriť menu">
+    <span class="top__menu-icon"><i></i><i></i></span>
+    <span>menu</span>
+  </button>
+
+  <a class="top__brand" href="#hero" data-magnetic>patrik<em>rosa</em></a>
+
+  <div class="top__right">
+    <span class="top__cd-lbl">odpočet do konca hodnotiaceho obdobia</span>
+    <span class="top__cd-val" id="topCount">— — —</span>
+  </div>
+</header>
+
+<!-- Off-canvas menu (uses View Transitions API when supported) -->
+<nav class="menu" id="menu" aria-hidden="true">
+  <button class="menu__close" id="menuClose" data-magnetic aria-label="Zavrieť">
+    <span></span><span></span>
+  </button>
+  <ol class="menu__list">
+    <li style="--i:0"><a href="#hero" data-magnetic><span class="menu__num">01</span><span class="menu__name">Úvod</span><em>Malíkova téza</em></a></li>
+    <li style="--i:1"><a href="#princip" data-magnetic><span class="menu__num">02</span><span class="menu__name">Princíp</span><em>Selekcia bola vždy</em></a></li>
+    <li style="--i:2"><a href="#filtre" data-magnetic><span class="menu__num">03</span><span class="menu__name">Filtre</span><em>Kto rozhoduje</em></a></li>
+    <li style="--i:3"><a href="#gramotnost" data-magnetic><span class="menu__num">04</span><span class="menu__name">Gramotnosť</span><em>Literárna éra</em></a></li>
+    <li style="--i:4"><a href="#hranice" data-magnetic><span class="menu__num">05</span><span class="menu__name">Hranice</span><em>Postman a tajomstvá</em></a></li>
+    <li style="--i:5"><a href="#reflektor" data-magnetic><span class="menu__num">06</span><span class="menu__name">Reflektor</span><em>d'Alembertov kužeľ</em></a></li>
+    <li style="--i:6"><a href="#lievik" data-magnetic><span class="menu__num">07</span><span class="menu__name">Lievik</span><em>Bourdieuove dve hrdlá</em></a></li>
+    <li style="--i:7"><a href="#aspekty" data-magnetic><span class="menu__num">08</span><span class="menu__name">Aspekty</span><em>Konceptuálny vs prevádzkový</em></a></li>
+    <li style="--i:8"><a href="#zaver" data-magnetic><span class="menu__num">09</span><span class="menu__name">Záver</span><em>Rozpoznávacia schopnosť</em></a></li>
+  </ol>
+  <div class="menu__foot">
+    <span>mediálna výchova / 2026</span>
+    <span>patrik<em>rosa</em></span>
+  </div>
 </nav>
+
+<!-- Section counter — bottom-left corner, updates as you scroll -->
+<aside class="counter" aria-hidden="true">
+  <em id="pageNum">01</em>
+  <span>/ 09</span>
+  <i class="counter__label" id="pageLabel">Úvod</i>
+</aside>
 
 <main>
 
-  <!-- 1 · HERO -->
-  <section class="hero" id="hero">
-    <div class="hero__top">
-      <span class="kicker">Branislav Malík · 2013</span>
-      <span class="kicker kicker--end">Mediálna výchova · 2026</span>
+  <!-- 01 · HERO -->
+  <section class="hero section" id="hero" data-bg="#0b1d4a" data-glow="#4a8fd9">
+    <div class="hero__meta">
+      <span class="dot"></span>
+      <span>Branislav Malík · 2013</span>
     </div>
 
-    <h1 class="hero__title">
-      <span class="line">Výber</span>
-      <span class="line"><em>relevantného</em></span>
+    <h1 class="hero__h">
+      <span class="hero__line" data-split>Výber</span>
+      <span class="hero__line hero__line--italic" data-split>relevantného</span>
     </h1>
 
-    <p class="hero__lede">
-      Niekto vždy rozhoduje, čo sa oplatí vedieť. Voľakedy tradícia. Potom kniha.
-      Potom škola. Dnes — algoritmus, trh a televízna minúta. Ktorá generácia
-      filtra ste boli vy?
+    <p class="hero__sub">
+      Niekto vždy rozhoduje, čo sa oplatí vedieť.
+      Voľakedy tradícia. Potom kniha. Potom škola.
+      <em>Dnes — algoritmus, trh a televízna minúta.</em>
     </p>
 
-    <div class="hero__byline">
-      <span>kapitola interpretovaná interaktívne</span>
-      <span class="hero__byline-by">Patrik Rosa</span>
+    <div class="hero__foot">
+      <div><em>since</em> 2013 — prečítané v roku 2026</div>
+      <div><em>scroll</em> — 9 kapitol / interaktívne</div>
     </div>
 
-    <div class="hero__scroll" aria-hidden="true">
-      <span class="hero__scroll-line"></span>
-      <small>posúvaj pomaly</small>
+    <div class="hero__cursor"><span></span><i></i></div>
+  </section>
+
+  <!-- 02 · PRINCÍP -->
+  <section class="princip section" id="princip" data-bg="#0b1d4a" data-glow="#6ab0e8">
+    <div class="kicker"><em>02</em><span>princíp</span></div>
+
+    <h2 class="big" data-split>Vzdelávanie <em>nikdy</em> nebolo iba odovzdávanie.</h2>
+
+    <p class="lede js-reveal-words">
+      Bolo <strong>vždy aj inštanciou</strong>, ktorá poznatky selektovala
+      a hierarchizovala podľa im prisudzovanej váhy. Filtre, na základe
+      ktorých dochádzalo k presunom dôrazu, sa <em>v čase menili</em>.
+    </p>
+
+    <div class="princip__three">
+      <div class="js-reveal"><span class="num">i.</span><p><strong>Tradícia, politika, trh.</strong> Externé filtre — voči škole prichádzajú zvonka.</p></div>
+      <div class="js-reveal"><span class="num">ii.</span><p><strong>Didaktika a citlivosť triedy.</strong> Vnútorné filtre — škola si ich nastavuje sama.</p></div>
+      <div class="js-reveal"><span class="num">iii.</span><p><strong>Informačné technológie.</strong> Nezamýšľaný filter — vznikol ako vedľajší produkt zmien.</p></div>
+    </div>
+
+    <blockquote class="pull">
+      „Čím je spoločenstvo žiakov diferencovanejšie, tým viac sa obsah
+      <em>vyprázdňuje a depolitizuje</em>.“
+    </blockquote>
+  </section>
+
+  <!-- 03 · FILTRE -->
+  <section class="filtre section" id="filtre" data-bg="#8a2222" data-glow="#ffb0a0">
+    <div class="kicker"><em>03</em><span>filtre selekcie</span></div>
+
+    <h2 class="big" data-split>Kto rozhoduje, čo sa <em>oplatí</em> učiť?</h2>
+
+    <p class="sub">
+      Šesť okruhov, ktoré Malík v kapitole otvára. Klikni — riadok sa otočí
+      na pôvodný citát z textu.
+    </p>
+
+    <div class="filtre__list">
+      <button class="ftile" data-magnetic data-flip style="--i:0">
+        <span class="ftile__n">01</span>
+        <span class="ftile__name">Tradícia</span>
+        <span class="ftile__desc">Generácia starších odovzdávala mladším len to, čo „malo vždy zmysel".</span>
+        <span class="ftile__quote">„Týmto spôsobom dospelí votkávali nastupujúcu generáciu do pradiva príslušnej kultúry, čím ju de facto vždy nanovo utvárali."</span>
+      </button>
+      <button class="ftile" data-magnetic data-flip style="--i:1">
+        <span class="ftile__n">02</span>
+        <span class="ftile__name">Politická moc</span>
+        <span class="ftile__desc">Štát rozhoduje, ktoré dejiny sú „naše". Selekcia sa tu mení na manipuláciu.</span>
+        <span class="ftile__quote">„V politickej propagande, marketingu, ale aj v pedagogike máme manažment zviditeľňovania a zneviditeľňovania dobre prepracovaný."</span>
+      </button>
+      <button class="ftile" data-magnetic data-flip style="--i:2">
+        <span class="ftile__n">03</span>
+        <span class="ftile__name">Svet práce</span>
+        <span class="ftile__desc">Trh požaduje merateľnú zručnosť. Informácia má hodnotu len ak prináša peniaze.</span>
+        <span class="ftile__quote">„Informácie sú dnes významovo odstupňované predovšetkým podľa ich trhovej hodnoty — schopnosti prinášať peniaze."</span>
+      </button>
+      <button class="ftile" data-magnetic data-flip style="--i:3">
+        <span class="ftile__n">04</span>
+        <span class="ftile__name">Didaktika</span>
+        <span class="ftile__desc">Učiteľ neprenáša pravdu — prenáša to, čo sa dá komunikovať.</span>
+        <span class="ftile__quote">„Učiteľ musí zohľadňovať aj to, že niektoré obsahy môžu byť pre niektorú zložku triedneho kolektívu citlivé."</span>
+      </button>
+      <button class="ftile" data-magnetic data-flip style="--i:4">
+        <span class="ftile__n">05</span>
+        <span class="ftile__name">Citlivosť triedy</span>
+        <span class="ftile__desc">V multikultúrnej triede sa rôzne kontexty navzájom rušia.</span>
+        <span class="ftile__quote">„Školstvo bude vo veľkých štátoch vždy nanajvýš priemerné, z toho dôvodu, z akého sa vo veľkých kuchyniach varí priemerne." — Nietzsche</span>
+      </button>
+      <button class="ftile" data-magnetic data-flip style="--i:5">
+        <span class="ftile__n">06</span>
+        <span class="ftile__name">Médiá</span>
+        <span class="ftile__desc">Rozhovory ľudí — a čoraz viac aj témy v triedach — sa točia okolo včerajšieho titulku.</span>
+        <span class="ftile__quote">„Médiá sa stávajú jediným zdrojom tém preberaných spoločenským diskurzom." — Jirák & Köpplová</span>
+      </button>
     </div>
   </section>
 
-  <!-- 2 · PRINCÍP -->
-  <section class="princip" id="princip">
-    <div class="head">
-      <span class="tag">01 — princíp</span>
-      <h2>Vzdelávanie nebolo <em>nikdy</em> len odovzdávanie.</h2>
+  <!-- 04 · GRAMOTNOSŤ -->
+  <!-- neviem preco s tym davam tolko roboty, hadam dostanem A aj tak, ale dobre -->
+  <section class="gramotnost section" id="gramotnost" data-bg="#4e5642" data-glow="#c8d4a8">
+    <div class="kicker"><em>04</em><span>literárna éra</span></div>
+
+    <h2 class="big" data-split>Vstupenkou bolo <em>čítanie</em>.</h2>
+
+    <p class="sub">
+      Skôr ako sa dieťa dostalo k „dospelému svetu", muselo si osvojiť
+      gramotnosť. Klikni — uvidíš (a budeš musieť pracovať), čo to znamená.
+    </p>
+
+    <div class="cipher" id="cipherStage">
+      <p data-cipher="Gramotnosť nie je pre človeka prirodzená. Jej získanie si vyžaduje určitú námahu — sebadisciplínu, schopnosť koncentrácie, trpezlivosť a samozrejme prax."></p>
+      <p data-cipher="Aby ich mohlo dieťa čítať s porozumením, muselo si osvojiť príslušné kultúrne kódy — informácie nadobúdali zmysel len v konkrétnom kultúrnom kontexte."></p>
+      <p data-cipher="K tajomstvám života obsiahnutých v knihách sa deti mohli dostať len veľmi pomaly a v postupnosti určitých krokov."></p>
     </div>
 
-    <div class="princip__body">
-      <p class="princip__lede js-reveal-words">
-        Bolo vždy aj inštanciou, ktorá poznatky <strong>selektovala</strong>
-        a <strong>hierarchizovala</strong> podľa im prisudzovanej váhy. Filtre,
-        na základe ktorých dochádzalo k presunom dôrazu, sa však v čase menili.
-      </p>
+    <div class="cipher__ctrl">
+      <button class="btn-line" id="cipherLearn" data-magnetic>
+        <span>učím sa čítať</span>
+        <i>↳</i>
+      </button>
+      <button class="btn-line btn-line--quiet" id="cipherReset" data-magnetic>resetovať</button>
+      <span class="cipher__prog"><em id="cipherProgress">0</em>%</span>
+    </div>
 
-      <div class="princip__three">
-        <div class="princip__col">
-          <span class="princip__num">i.</span>
-          <p>Niektoré filtre <strong>nastavovala tradícia</strong>, politická
-          moc či svet práce. Boli externé voči škole.</p>
-        </div>
-        <div class="princip__col">
-          <span class="princip__num">ii.</span>
-          <p>Iné si škola nastavila <strong>sama</strong> — didaktika
-          rozhodovala, čo sa dá komunikovať a pochopiť.</p>
-        </div>
-        <div class="princip__col">
-          <span class="princip__num">iii.</span>
-          <p>Niektoré boli nasadené <strong>vedome</strong>, iné vznikli ako
-          <strong>nezamýšľaný dôsledok</strong> zmien v komunikácii.</p>
-        </div>
-      </div>
+    <p class="footnote">
+      Plynule čítať dokázali len dospelí. Postman tvrdí, že práve
+      <em>tento odpor</em> vytváral hranicu, ktorú internet zrušil.
+    </p>
+  </section>
 
-      <blockquote class="pull">
-        Čím je spoločenstvo žiakov kultúrne a sociálne diferencovanejšie,
-        tým viac takýchto rastrov vstupuje do hry, tým viac sa obsah
-        <em>vyprázdňuje a depolitizuje</em>.
+  <!-- 05 · HRANICE -->
+  <section class="hranice section" id="hranice" data-bg="#07070a" data-glow="#ff8b3d">
+    <div class="kicker"><em>05</em><span>nástup médií</span></div>
+
+    <h2 class="big" data-split>A potom hranica medzi dieťaťom a dospelým <em>zmizla</em>.</h2>
+
+    <figure class="postman-q">
+      <blockquote class="js-reveal-words">
+        „Detstvo nemôže existovať bez tajomstva. Elektronické médiá však
+        považujú za nemožné odmietnuť akékoľvek tajomstvo. Detskú zvedavosť
+        dnes nahrádza cynizmus — sú to deti, ktorým boli dané odpovede
+        na otázky, na ktoré sa nikdy nepýtali."
       </blockquote>
-    </div>
-  </section>
-
-  <!-- 3 · FILTRE -->
-  <section class="filtre" id="filtre">
-    <div class="head">
-      <span class="tag">02 — filtre</span>
-      <h2>Kto rozhoduje, čo sa <em>oplatí</em> učiť?</h2>
-      <p class="sub">Šesť okruhov, ktoré Malík cez celú kapitolu opakovane otvára. Klikni — každý ukrýva citát.</p>
-    </div>
-
-    <div class="filtre__grid">
-      <button class="card card--filter" data-magnetic data-flip>
-        <div class="card__face card__face--front">
-          <span class="card__num">I</span>
-          <h3>Tradícia</h3>
-          <p>Generácia starších odovzdávala mladším len to, čo „malo vždy zmysel“. Informácie boli dávkované a votkávané do kultúry.</p>
-          <span class="card__hint">klikni</span>
-        </div>
-        <div class="card__face card__face--back">
-          <blockquote>„Týmto spôsobom dospelí votkávali príslušníkov nastupujúcej generácie do pradiva príslušnej kultúry, čím ju de facto vždy nanovo utvárali.“</blockquote>
-        </div>
-      </button>
-
-      <button class="card card--filter" data-magnetic data-flip>
-        <div class="card__face card__face--front">
-          <span class="card__num">II</span>
-          <h3>Politická moc</h3>
-          <p>Štát rozhoduje, ktoré dejiny sú „naše“. Selekcia sa tu mení na manipuláciu — niekto určuje, čo sa osvetlí a čo zatemní.</p>
-          <span class="card__hint">klikni</span>
-        </div>
-        <div class="card__face card__face--back">
-          <blockquote>„V politickej propagande, psychoterapii, marketingu, ale aj v pedagogike máme manažment zviditeľňovania a zneviditeľňovania dobre prepracovaný.“</blockquote>
-        </div>
-      </button>
-
-      <button class="card card--filter" data-magnetic data-flip>
-        <div class="card__face card__face--front">
-          <span class="card__num">III</span>
-          <h3>Svet práce</h3>
-          <p>Trh požaduje merateľnú zručnosť. Informácie sa hodnotia tým, či prinášajú peniaze — všetko ostatné stráca váhu.</p>
-          <span class="card__hint">klikni</span>
-        </div>
-        <div class="card__face card__face--back">
-          <blockquote>„Informácie sú dnes významovo odstupňované predovšetkým podľa ich trhovej hodnoty — schopnosti prinášať peniaze.“</blockquote>
-        </div>
-      </button>
-
-      <button class="card card--filter" data-magnetic data-flip>
-        <div class="card__face card__face--front">
-          <span class="card__num">IV</span>
-          <h3>Didaktika</h3>
-          <p>Učiteľ neprenáša pravdu, ale to, čo sa dá komunikovať. Nie všetko môže byť prístupné každému naraz.</p>
-          <span class="card__hint">klikni</span>
-        </div>
-        <div class="card__face card__face--back">
-          <blockquote>„Učiteľ musí zohľadňovať aj to, že niektoré obsahy môžu byť pre niektorú zložku triedneho kolektívu citlivé, a preto je nútený niektoré z týchto tém zo svojho repertoáru vynechať.“</blockquote>
-        </div>
-      </button>
-
-      <button class="card card--filter" data-magnetic data-flip>
-        <div class="card__face card__face--front">
-          <span class="card__num">V</span>
-          <h3>Citlivosť triedy</h3>
-          <p>V multikultúrnej triede sa rôzne kontexty navzájom rušia. Aby učiteľ neranil, vyprázdňuje obsah.</p>
-          <span class="card__hint">klikni</span>
-        </div>
-        <div class="card__face card__face--back">
-          <blockquote>„Školstvo bude vo veľkých štátoch vždy nanajvýš priemerné, z toho istého dôvodu, z akého sa vo veľkých kuchyniach varí v najlepšom prípade priemerne.“ — Nietzsche</blockquote>
-        </div>
-      </button>
-
-      <button class="card card--filter" data-magnetic data-flip>
-        <div class="card__face card__face--front">
-          <span class="card__num">VI</span>
-          <h3>Médiá</h3>
-          <p>Rozhovory ľudí — a čoraz viac aj témy v triedach — sa točia okolo toho, čo médiá včera ponúkli ako tému.</p>
-          <span class="card__hint">klikni</span>
-        </div>
-        <div class="card__face card__face--back">
-          <blockquote>„Médiá sa stávajú jediným zdrojom tém preberaných spoločenským diskurzom.“ — Jirák & Köpplová</blockquote>
-        </div>
-      </button>
-    </div>
-  </section>
-
-  <!-- 4 · GRAMOTNOSŤ -->
-  <section class="gramotnost" id="gramotnost">
-    <div class="head">
-      <span class="tag">03 — kedysi · literárna éra</span>
-      <h2>Vstupenkou k informácii bolo <em>čítanie</em>.</h2>
-      <p class="sub">Skôr ako sa dieťa dostalo k „dospelému svetu“, muselo si osvojiť gramotnosť. Tá nie je pre človeka prirodzená.</p>
-    </div>
-
-    <div class="gramotnost__stage">
-      <div class="gramotnost__cipher" id="cipherStage" aria-live="polite">
-        <p data-cipher="Gramotnosť nie je pre človeka prirodzená. Jej získanie si vyžaduje určitú námahu — sebadisciplínu, schopnosť koncentrácie, trpezlivosť a samozrejme prax."></p>
-        <p data-cipher="Aby ich mohlo dieťa čítať s porozumením, muselo si osvojiť príslušné kultúrne kódy — informácie nadobúdali zmysel len v konkrétnom kultúrnom kontexte."></p>
-        <p data-cipher="K tajomstvám života obsiahnutých v knihách sa deti mohli dostať len veľmi pomaly a v postupnosti určitých krokov."></p>
-      </div>
-
-      <div class="gramotnost__controls">
-        <button class="btn btn--ghost" id="cipherLearn" data-magnetic>učím sa čítať</button>
-        <button class="btn btn--link" id="cipherReset" data-magnetic>resetovať</button>
-        <span class="gramotnost__progress"><span id="cipherProgress">0</span>% rozumiem</span>
-      </div>
-
-      <p class="gramotnost__note">
-        Plynule čítať dokázali len dospelí. Dieťa muselo prejsť cestou, na ktorej
-        narážalo na <em>odpor a prekážky</em>. Postman tvrdí, že práve tento odpor
-        vytváral hranicu, ktorú internet úplne zrušil.
-      </p>
-    </div>
-  </section>
-
-  <!-- 5 · HRANICE PADAJÚ -->
-  <section class="hranice" id="hranice">
-    <div class="head">
-      <span class="tag">04 — nástup médií</span>
-      <h2>A potom hranica medzi dieťaťom a dospelým <em>zmizla</em>.</h2>
-    </div>
-
-    <figure class="hranice__quote">
-      <blockquote>
-        Detstvo nemôže existovať bez tajomstva. Elektronické médiá však považujú
-        za nemožné odmietnuť akékoľvek tajomstvo. Detskú zvedavosť dnes nahrádza
-        cynizmus a arogancia — sú to deti, ktorým boli dané odpovede na otázky,
-        na ktoré sa nikdy nepýtali.
-      </blockquote>
-      <figcaption>parafráza Neila Postmana, citovaná Malíkom</figcaption>
+      <figcaption>— Neil Postman, parafrázované Malíkom</figcaption>
     </figure>
 
-    <p class="hranice__lede">
-      Klikni na tajomstvo — uvidíš, prečo si Postman myslí, že detstvo bez
-      neho nemôže existovať. Potom sa pozri, čo zostane.
+    <p class="sub">
+      Klikni na tajomstvo — uvidíš, čo strážilo. Druhý klik ho rozpustí.
     </p>
 
-    <div class="hranice__secrets">
-      <button class="secret" data-magnetic data-secret>
-        <span class="secret__label">tajomstvo I</span>
-        <div class="secret__inner">
-          <strong>„Toto sa dozvieš, keď budeš starší.“</strong>
-          <em>Postman: učiteľ kedysi vedel toto povedať. Tým vytváral
-          záťaž zvedavosti, ktorá tlačila žiaka ďalej.</em>
+    <div class="secrets">
+      <button class="secret" data-magnetic data-secret style="--i:0">
+        <span class="secret__n">tajomstvo I</span>
+        <div class="secret__body">
+          <strong>„Toto sa dozvieš, keď budeš starší."</strong>
+          <em>Učiteľ kedysi vedel toto povedať. Vytváral záťaž zvedavosti.</em>
         </div>
       </button>
-      <button class="secret" data-magnetic data-secret>
-        <span class="secret__label">tajomstvo II</span>
-        <div class="secret__inner">
-          <strong>„Toto je v odbornej terminológii.“</strong>
-          <em>Zložité informácie sa kódovali do jazyka, ktorému laik —
-          aj keď vedel čítať — nerozumel.</em>
+      <button class="secret" data-magnetic data-secret style="--i:1">
+        <span class="secret__n">tajomstvo II</span>
+        <div class="secret__body">
+          <strong>„Toto je v odbornej terminológii."</strong>
+          <em>Zložité informácie boli kódované do jazyka, ktorému laik nerozumel.</em>
         </div>
       </button>
-      <button class="secret" data-magnetic data-secret>
-        <span class="secret__label">tajomstvo III</span>
-        <div class="secret__inner">
-          <strong>„Toto je pre dospelých.“</strong>
-          <em>Existoval vekový cenzus. Televízia a internet ho zrušili —
-          rozdiel medzi dieťaťom a dospelým sa rozpustil.</em>
+      <button class="secret" data-magnetic data-secret style="--i:2">
+        <span class="secret__n">tajomstvo III</span>
+        <div class="secret__body">
+          <strong>„Toto je pre dospelých."</strong>
+          <em>Existoval vekový cenzus. Televízia a internet ho zrušili.</em>
         </div>
       </button>
     </div>
 
-    <p class="hranice__after" id="hraniceAfter" aria-live="polite">
-      Tajomstvá sú stále tu. Klikni.
-    </p>
+    <p class="secrets__after" id="hraniceAfter">tajomstvá sú stále tu. klikni.</p>
 
-    <div class="hranice__joy glass">
-      <span class="kicker">Bill Joy, spoluzakladateľ Sun Microsystems</span>
+    <div class="joy">
+      <span class="kicker"><em>Bill Joy</em><span>spoluzakladateľ Sun Microsystems</span></span>
       <blockquote>
-        Technológie spôsobili <em>demokratizáciu prejavu</em> — a s publikačnými
-        možnosťami sme stratili cit pre kvalitu. Odstupňovanie kvality bolo vždy
-        založené na skutočnosti, že slová majú váhu, že ich šírenie stojí peniaze,
-        takže existoval značný tlak proti odpadu.
+        „Technológie spôsobili <em>demokratizáciu prejavu</em> — s publikačnými
+        možnosťami sme stratili cit pre kvalitu. Slová majú váhu, lebo ich
+        šírenie stojí peniaze. Dnes ich nestojí."
       </blockquote>
       <p>
-        Dnes slová nemajú váhu — a Malík preto navrhuje rozšíriť ekologickú
-        výchovu o on-line ekosystém. Tu ešte nie je jasné, čo je skládka
-        a čo upotrebiteľná informácia.
+        Malík preto navrhuje rozšíriť ekologickú výchovu o <strong>on-line ekosystém</strong>.
       </p>
     </div>
   </section>
 
-  <!-- 6 · REFLEKTOR -->
-  <section class="reflektor" id="reflektor">
-    <div class="head">
-      <span class="tag">05 — d'Alembertov reflektor</span>
-      <h2>Náš životný obzor sa <em>nerozširuje</em>. Mení sa zorné pole.</h2>
-      <p class="sub">Posunieš kurzor — uvidíš výsek skutočnosti. Zvyšok ostane v tme. Presne tak funguje selekcia v médiách aj v škole.</p>
-    </div>
+  <!-- 06 · REFLEKTOR -->
+  <section class="reflektor section" id="reflektor" data-bg="#07070a" data-glow="#f0e2b8">
+    <div class="kicker"><em>06</em><span>d'Alembertov kužeľ</span></div>
+
+    <h2 class="big" data-split>Náš obzor sa <em>nerozširuje</em>. Mení sa zorné pole.</h2>
+
+    <p class="sub">
+      Pohni kurzorom — uvidíš výsek skutočnosti. Zvyšok ostane v tme.
+      Presne tak funguje selekcia v škole, médiách aj v tvojej hlave.
+    </p>
 
     <div class="reflektor__stage" id="reflektorStage">
-      <div class="reflektor__beam" id="reflektorBeam" aria-hidden="true"></div>
-
+      <div class="reflektor__beam" id="reflektorBeam"></div>
       <div class="reflektor__content">
-        <p>
-          Nevieme toho stále viac a viac. Z rozrastajúcej sa množiny vecí,
-          udalostí a faktov je nám sprístupnené vždy len niečo, i keď zakaždým
-          niečo iné.
-        </p>
-        <p>
-          Náš životný obzor sa neroztiahuje — <em>mení sa naše zorné pole</em>.
-          Nie je to ako svitanie, pod vplyvom ktorého sa všetko vynára z prítmia.
-          Skôr je to <em>kužeľ svetla z bodového reflektora</em>, ktorý osvetľuje
-          malý výsek skutočnosti a zvyšok necháva spočívať v tme.
-        </p>
-        <p class="reflektor__d">
-          <em>d'Alembert (1982):</em> „Tak aj príliv a odliv oceánu vynesie
-          na breh rozličné veci a iné strhne so sebou do mora.“
-        </p>
-        <p>
-          Otázka teda nie je <em>čo všetko</em> vieme. Otázka je <strong>kto
-          drží baterku</strong> a kam ňou svieti.
-        </p>
+        <p>Nevieme toho stále viac a viac. Z rozrastajúcej sa množiny vecí, udalostí a faktov je nám sprístupnené vždy len niečo, i keď zakaždým niečo iné.</p>
+        <p>Náš životný obzor sa neroztiahuje — <em>mení sa naše zorné pole</em>. Nie je to ako svitanie, pod vplyvom ktorého sa všetko vynára z prítmia. Skôr je to <em>kužeľ svetla z bodového reflektora</em>.</p>
+        <p><em>d'Alembert (1982):</em> „Tak aj príliv a odliv oceánu vynesie na breh rozličné veci a iné strhne so sebou do mora."</p>
+        <p>Otázka teda nie je <em>čo všetko</em> vieme. Otázka je <strong>kto drží baterku</strong> a kam ňou svieti.</p>
       </div>
     </div>
   </section>
 
-  <!-- 7 · LIEVIK -->
-  <section class="lievik" id="lievik">
-    <div class="head">
-      <span class="tag">06 — Bourdieuov lievik</span>
-      <h2>Lievik s <em>dvomi hrdlami</em>.</h2>
-      <p class="sub">Témy zhora. Prvé hrdlo: „Je to omnibus? Nepoburuje?“ Druhé hrdlo: „Slúži to záujmom?“ Čo zostane?</p>
-    </div>
+  <!-- 07 · LIEVIK -->
+  <section class="lievik section" id="lievik" data-bg="#c9651e" data-glow="#ffd9a8">
+    <div class="kicker"><em>07</em><span>Bourdieuove dve hrdlá</span></div>
+
+    <h2 class="big" data-split>Lievik s dvomi <em>hrdlami</em>.</h2>
+
+    <p class="sub">
+      Tridsať reálnych tém zhora. Prvé hrdlo: „Je to omnibus? Nepoburuje?"
+      Druhé hrdlo: „Slúži to záujmom?" Spusti — a pozri, čo prejde.
+    </p>
 
     <div class="lievik__stage">
       <div class="lievik__viz" id="lievikViz">
         <div class="lievik__pool" id="lievikPool"></div>
-        <div class="lievik__neck lievik__neck--1">
-          <span>I. hrdlo · omnibus</span>
-        </div>
-        <div class="lievik__neck lievik__neck--2">
-          <span>II. hrdlo · záujmy</span>
-        </div>
+        <div class="lievik__neck lievik__neck--1"><span>I. omnibus</span></div>
+        <div class="lievik__neck lievik__neck--2"><span>II. záujmy</span></div>
         <div class="lievik__output" id="lievikOutput"></div>
       </div>
 
-      <aside class="lievik__legend">
-        <div class="lievik__step">
-          <span class="lievik__step-i">01</span>
-          <h4>Vstup</h4>
-          <p>30 reálnych tém, ktoré by sa mohli stať predmetom správ alebo hodiny dejepisu.</p>
+      <div class="lievik__side">
+        <div class="lievik__step"><b>01</b> Vstup<br/><span>30 reálnych tém z verejnej debaty.</span></div>
+        <div class="lievik__step"><b>02</b> I. hrdlo · omnibus<br/><span>Prejde len to, čo nikoho nepobúri.</span></div>
+        <div class="lievik__step"><b>03</b> II. hrdlo · záujmy<br/><span>Prejde len to, čo zapadá do horizontu redaktorov a inzerentov.</span></div>
+        <div class="lievik__step"><b>04</b> Výstup<br/><span>Čo nakoniec konzumujete.</span></div>
+        <div class="lievik__btns">
+          <button class="btn-line" id="lievikStart" data-magnetic><span>spustiť</span><i>→</i></button>
+          <button class="btn-line btn-line--quiet" id="lievikReset" data-magnetic>znova</button>
         </div>
-        <div class="lievik__step">
-          <span class="lievik__step-i">02</span>
-          <h4>I. hrdlo · omnibus</h4>
-          <p>Prejde len to, čo nikoho nepobúri. „Bezproblémové problémy.“ Kontroverzie vypadávajú.</p>
-        </div>
-        <div class="lievik__step">
-          <span class="lievik__step-i">03</span>
-          <h4>II. hrdlo · záujmy</h4>
-          <p>Druhý filter prepustí len to, čo zapadá do horizontu redaktorov a do záujmov majiteľov a inzerentov.</p>
-        </div>
-        <div class="lievik__step">
-          <span class="lievik__step-i">04</span>
-          <h4>Výstup</h4>
-          <p>Témy, ktoré nakoniec konzumujete. A o ktorých sa rozprávate v škole.</p>
-        </div>
-        <div class="lievik__controls">
-          <button class="btn btn--ghost" id="lievikStart" data-magnetic>spustiť filtráciu</button>
-          <button class="btn btn--link" id="lievikReset" data-magnetic>znova</button>
-        </div>
-      </aside>
+      </div>
     </div>
 
-    <p class="lievik__bottom">
-      <strong>Snahou médií je osloviť heterogénne publikum.</strong> Bourdieu však
-      tvrdí, že tento trend smeruje k <em>homogenizácii, banalizácii a depolitizácii</em>.
-      To isté sa deje v škole, ak je trieda dostatočne rôznorodá: citlivé témy
-      vypadávajú, učivo sa vyprázdňuje.
+    <p class="footnote">
+      <strong>Snahou médií je osloviť heterogénne publikum.</strong> Bourdieu
+      však tvrdí, že tento trend smeruje k <em>homogenizácii, banalizácii
+      a depolitizácii</em>. To isté sa deje v škole.
     </p>
   </section>
 
-  <!-- 8 · DVA ASPEKTY -->
-  <section class="aspekty" id="aspekty">
-    <div class="head">
-      <span class="tag">07 — dva aspekty výberu</span>
-      <h2>Aj keď viete <em>čo</em>, ostáva otázka <em>ako</em>.</h2>
-      <p class="sub">Malík oddelil konceptuálny aspekt (čo je relevantné?) od prevádzkového (ako to vtesnať do 45 minút?). Posunutím slidera uvidíte, čo robí časový tlak s obsahom.</p>
-    </div>
+  <!-- 08 · ASPEKTY -->
+  <section class="aspekty section" id="aspekty" data-bg="#3a2a52" data-glow="#d4a8ff">
+    <div class="kicker"><em>08</em><span>dva aspekty</span></div>
 
-    <div class="aspekty__split">
-      <div class="aspekty__col">
+    <h2 class="big" data-split>Aj keď viete <em>čo</em>, ostáva otázka <em>ako</em>.</h2>
+
+    <p class="sub">
+      Malík oddelil konceptuálny aspekt (čo je relevantné?) od prevádzkového
+      (ako to vtesnať do 45 minút?). Posuň slider — a uvidíš, čo robí
+      časový tlak s obsahom.
+    </p>
+
+    <div class="aspekty__pair">
+      <div class="aspekty__col js-reveal">
         <span class="aspekty__letter">A</span>
-        <h3>Konceptuálny</h3>
+        <h3>konceptuálny</h3>
         <ul>
-          <li>Kto rozhoduje, čo je <strong>hodné poznania</strong>?</li>
+          <li>Kto rozhoduje, čo je <em>hodné poznania</em>?</li>
           <li>Akú váhu má veda, akú trh, akú tradícia?</li>
-          <li>„Otázka, čo je hodné poznania, sa nedá zodpovedať na pôde vedy samotnej.“ — <em>Weber</em></li>
+          <li>„Otázka, čo je hodné poznania, sa nedá zodpovedať na pôde vedy samotnej." — Weber</li>
         </ul>
       </div>
-      <div class="aspekty__col">
+      <div class="aspekty__col js-reveal">
         <span class="aspekty__letter">B</span>
-        <h3>Prevádzkový</h3>
+        <h3>prevádzkový</h3>
         <ul>
-          <li>Ako vtesnať <strong>svetové dejiny</strong> do 45 minút?</li>
+          <li>Ako vtesnať <em>svetové dejiny</em> do 45 minút?</li>
           <li>Komprimácia = najmocnejší filter.</li>
           <li>Mediálny čas je drahý. Aj náš čas je drahý.</li>
         </ul>
       </div>
     </div>
 
-    <div class="aspekty__sim glass">
+    <div class="aspekty__sim">
       <div class="aspekty__sim-head">
         <h4>Simulátor prevádzkového tlaku</h4>
-        <p>Posuň slider: koľko minút máme na tému?</p>
+        <p>Koľko minút máme na tému?</p>
       </div>
-      <div class="aspekty__sim-slider">
+      <div class="aspekty__sim-row">
         <input type="range" id="timeSlider" min="3" max="60" value="45" />
-        <div class="aspekty__sim-readout">
-          <span id="timeValue">45</span><small>min / téma</small>
-        </div>
+        <div class="aspekty__sim-out"><span id="timeValue">45</span><small>min</small></div>
       </div>
       <div class="aspekty__sim-content" id="topicContent">
         <h5>Druhá svetová vojna</h5>
@@ -475,90 +415,75 @@
         <p class="t-4">Slovenské národné povstanie 1944: jeden z najväčších protifašistických odbojov v okupovanej Európe.</p>
         <p class="t-5">Dôsledky: rozdelenie sveta, OSN, studená vojna, geopolitický poriadok platný dodnes.</p>
       </div>
-      <p class="aspekty__sim-note" id="timeNote">Plný kontext, plná hĺbka.</p>
+      <p class="aspekty__sim-note" id="timeNote">plný kontext, plná hĺbka</p>
     </div>
   </section>
 
-  <!-- 9 · ZÁVER -->
-  <section class="zaver" id="zaver">
-    <div class="head">
-      <span class="tag">08 — záver</span>
-      <h2>Strata <em>rozpoznávacej schopnosti</em>.</h2>
-    </div>
+  <!-- 09 · ZÁVER -->
+  <section class="zaver section" id="zaver" data-bg="#07070a" data-glow="#ede5d2">
+    <div class="kicker"><em>09</em><span>záver</span></div>
 
-    <div class="zaver__body">
-      <p class="zaver__lede">
-        Kierkegaard v Bázni a chvení píše: <em>„Mohol povedať všetko, len jedno
-        nie, a keď práve toto nemohol vysloviť — tak, aby tomu druhý porozumel
-        — nehovoril vlastne nič.“</em>
-      </p>
+    <h2 class="big" data-split>Strata <em>rozpoznávacej</em> schopnosti.</h2>
 
-      <p>
-        Malík to vzťahuje na učiteľa: niekedy <strong>mlčí, hoci hovorí</strong>,
-        lebo vie, že auditórium nemá <em>predporozumenie</em> na to, čo má byť
-        povedané. A keď celá kultúra stratí toto predporozumenie, prichádza
-        k jadru veci:
-      </p>
+    <p class="lede js-reveal-words">
+      Kierkegaard v Bázni a chvení píše: <em>„Mohol povedať všetko, len jedno
+      nie, a keď práve toto nemohol vysloviť — tak, aby tomu druhý porozumel
+      — nehovoril vlastne nič."</em>
+    </p>
 
-      <blockquote class="pull pull--big">
-        Vzdelaný človek vie posúdiť, či krok, ktorý sme urobili, je krokom
-        <em>vpred</em>, krokom <em>vedľa</em>, alebo krokom <em>do prázdna</em>.
-        Úpadok vzdelávania zákonite vedie k strate tejto rozpoznávacej
-        schopnosti.
-      </blockquote>
+    <p class="zaver__body-p js-reveal-words">
+      Malík to vzťahuje na učiteľa: niekedy <strong>mlčí, hoci hovorí</strong>,
+      lebo vie, že auditórium nemá <em>predporozumenie</em> na to, čo má byť
+      povedané.
+    </p>
 
-      <p>
-        A preto, dodáva Malík v poslednej vete kapitoly, v hre tu nie je len
-        otázka <em>ekonómie myslenia</em>. V hre je <strong>prežitie ľudstva
-        a pretrvanie ľudskej kultúry</strong>.
-      </p>
-    </div>
+    <blockquote class="pull pull--big">
+      „Vzdelaný človek vie posúdiť, či krok, ktorý sme urobili, je krokom
+      <em>vpred</em>, krokom <em>vedľa</em>, alebo krokom <em>do prázdna</em>.
+      Úpadok vzdelávania zákonite vedie k strate tejto rozpoznávacej
+      schopnosti."
+    </blockquote>
+
+    <p class="zaver__final js-reveal-words">
+      V hre teda nie je len otázka <em>ekonómie myslenia</em>.
+      V hre je <strong>prežitie ľudstva a pretrvanie ľudskej kultúry</strong>.
+    </p>
   </section>
 
-  <!-- BIBLIO -->
-  <section class="biblio" id="biblio">
+  <!-- Bibliografia -->
+  <section class="biblio section" id="biblio" data-bg="#07070a" data-glow="#ede5d2">
     <h2 class="biblio__h">Použitá literatúra</h2>
     <p class="biblio__note">
-      Plný citát zdrojovej kapitoly: MALÍK, B. 2013. <em>Problém výberu
-      relevantného v občianskom vzdelávaní v kontexte multikultúrneho prostredia
-      a súčasného informačného boomu.</em> In Teoretické reflexie výchovy
-      k demokratickému občianstvu na školách. Bratislava: UK, 217 s.
+      Zdrojová kapitola: MALÍK, B. 2013. <em>Problém výberu relevantného v občianskom
+      vzdelávaní v kontexte multikultúrneho prostredia a súčasného informačného boomu.</em>
+      In Teoretické reflexie výchovy k demokratickému občianstvu na školách. Bratislava: UK.
       ISBN 978-80-223-3534-8. Autor textu žiada rešpektovanie autorských práv.
     </p>
     <ol class="biblio__list">
       <li>BARICCO, A. (2009). <em>Barbari.</em> Bratislava: Kaligram.</li>
-      <li>BAUERLEIN, M. (2011). <em>Najhlúpejšia generácia.</em> Bratislava: Spolok slov. spisovateľov.</li>
+      <li>BAUERLEIN, M. (2011). <em>Najhlúpejšia generácia.</em> Spolok slov. spisovateľov.</li>
       <li>BOURDIEU, P. (2002). <em>O televízii III.</em> In KINO-IKON.</li>
-      <li>D'ALEMBERT, J. (1982). <em>Esej o základoch filozofie.</em> Bratislava: Pravda.</li>
-      <li>JIRÁK, J. – KÖPPLOVÁ, B. (2007). <em>Média a společnost.</em> Praha: Portál.</li>
-      <li>KIERKEGAARD, S. (1993). <em>Bázeň a chvění.</em> Praha: Svoboda.</li>
-      <li>NIETZSCHE, F. (2010). <em>Lidské, příliš lidské I.</em> Praha: Oikoymenh.</li>
-      <li>NOVOSÁD, F. (1997). <em>Osud a voľba.</em> Bratislava: Iris.</li>
-      <li>POSTMAN, N. (1994). <em>The Disappearance of Childhood.</em> NY: Vintage.</li>
-      <li>POSTMAN, N. (1999). <em>Ubavit se k smrti.</em> Praha: Mladá fronta.</li>
-      <li>THOMPSON, J. B. (2004). <em>Média a modernita.</em> Praha: Karolinum.</li>
+      <li>D'ALEMBERT, J. (1982). <em>Esej o základoch filozofie.</em> Pravda.</li>
+      <li>JIRÁK, J. – KÖPPLOVÁ, B. (2007). <em>Média a společnost.</em> Portál.</li>
+      <li>KIERKEGAARD, S. (1993). <em>Bázeň a chvění.</em> Svoboda.</li>
+      <li>NIETZSCHE, F. (2010). <em>Lidské, příliš lidské I.</em> Oikoymenh.</li>
+      <li>NOVOSÁD, F. (1997). <em>Osud a voľba.</em> Iris.</li>
+      <li>POSTMAN, N. (1994). <em>The Disappearance of Childhood.</em> Vintage.</li>
+      <li>POSTMAN, N. (1999). <em>Ubavit se k smrti.</em> Mladá fronta.</li>
+      <li>THOMPSON, J. B. (2004). <em>Média a modernita.</em> Karolinum.</li>
       <li>VIRILIO, P. (2004). <em>Informatická bomba.</em> Mervart.</li>
       <li>WEBER, M. (1983). <em>K metodológii sociálnych vied.</em> Pravda.</li>
-      <li>WEIZSÄCKER, C. F. von (1992). <em>Čas, fyzika, metafyzika.</em> Praha: FÚ ČSAV.</li>
+      <li>WEIZSÄCKER, C. F. von (1992). <em>Čas, fyzika, metafyzika.</em> FÚ ČSAV.</li>
     </ol>
   </section>
 
-  <footer class="foot">
-    <div class="foot__row">
-      <div class="foot__credit">
-        <span>Vytvoril</span>
-        <strong>Patrik Rosa</strong>
-        <span>· Mediálna výchova · 2026</span>
-      </div>
-      <div class="foot__source">
-        Zdroj: <em>Branislav Malík</em>, kapitola z monografie (2013, ISBN 978-80-223-3534-8)
-      </div>
-    </div>
-    <!-- Easter egg countdown — tichý, malý, na okraji -->
-    <div class="foot__egg" aria-label="Odpočet do konca hodnotiaceho obdobia">
-      <span class="foot__egg-dot"></span>
-      <span class="foot__egg-lbl">odpočet hodnotenia</span>
-      <span class="foot__egg-val" id="footEgg">— — —</span>
+  <footer class="foot section" id="foot" data-bg="#07070a" data-glow="#9a8b7a">
+    <div class="foot__big" data-split>patrik<em>rosa</em></div>
+    <div class="foot__role">— mediálna výchova / 2026</div>
+    <div class="foot__meta">
+      <div><em>zdroj</em><span>Branislav Malík, kapitola z monografie (2013) · ISBN 978-80-223-3534-8</span></div>
+      <div><em>technológie</em><span>HTML · CSS · vanilla JS · SVG filtre · scroll-driven animations · View Transitions API</span></div>
+      <div><em>odpočet do konca hodnotiaceho obdobia</em><span id="footCd">— — —</span></div>
     </div>
   </footer>
 

@@ -10,7 +10,54 @@
   const isCoarse = window.matchMedia('(hover: none)').matches;
   const reduced  = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ─── Boot loader ────────────────────────────────────────────────────────
+  // easing
+  const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  // ─── Color utils ─────────────────────────────────────────────────────
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    const v = h.length === 3
+      ? h.split('').map(c => parseInt(c + c, 16))
+      : [parseInt(h.slice(0,2), 16), parseInt(h.slice(2,4), 16), parseInt(h.slice(4,6), 16)];
+    return { r: v[0], g: v[1], b: v[2] };
+  }
+  function mixRgb(a, b, t) {
+    return {
+      r: Math.round(lerp(a.r, b.r, t)),
+      g: Math.round(lerp(a.g, b.g, t)),
+      b: Math.round(lerp(a.b, b.b, t)),
+    };
+  }
+  const rgbStr = (c) => `rgb(${c.r}, ${c.g}, ${c.b})`;
+
+  // ─── Split text (preserves children like <em>) ───────────────────────
+  function splitText(root) {
+    const ii = { v: 0 };
+    function walk(parent) {
+      const kids = [...parent.childNodes];
+      for (const child of kids) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          const text = child.textContent;
+          const frag = document.createDocumentFragment();
+          for (const ch of text) {
+            const s = document.createElement('span');
+            s.className = 'ch';
+            s.style.setProperty('--i', ii.v++);
+            s.textContent = ch === ' ' ? ' ' : ch;
+            frag.appendChild(s);
+          }
+          parent.insertBefore(frag, child);
+          parent.removeChild(child);
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+          if (child.tagName === 'BR') continue;
+          walk(child);
+        }
+      }
+    }
+    walk(root);
+  }
+
+  // ─── Boot loader ─────────────────────────────────────────────────────
   const Boot = (() => {
     const boot   = $('#boot');
     const fill   = $('#bootFill');
@@ -18,24 +65,19 @@
     const status = $('#bootStatus');
 
     const steps = [
-      { weight: 12, label: 'načítavam typografiu',       run: combine(loadFonts, wait(280)) },
-      { weight: 10, label: 'pripravujem sklo a refrakciu', run: combine(warmupGlass, wait(220)) },
-      { weight: 14, label: 'kompilujem SVG filtre',      run: warmupFilters },
-      { weight: 12, label: 'kalibrujem rozpoznávaciu schopnosť', run: wait(440) },
-      { weight: 16, label: 'osvetľujem d’Alembertov reflektor', run: wait(520) },
-      { weight: 14, label: 'preosievam témy lievikom', run: wait(420) },
-      { weight: 12, label: 'magnetizujem prvky', run: wait(360) },
-      { weight: 10, label: 'finalizujem', run: wait(280) },
+      { weight: 12, label: 'načítavam typografiu',     run: combine(loadFonts, wait(260)) },
+      { weight: 10, label: 'pripravujem farby sekcií', run: wait(240) },
+      { weight: 14, label: 'kompilujem SVG filtre',    run: warmupFilters },
+      { weight: 12, label: 'rozpoznávacia schopnosť',  run: wait(420) },
+      { weight: 16, label: 'osvetľujem reflektor',     run: wait(500) },
+      { weight: 14, label: 'preosievam lievikom',      run: wait(400) },
+      { weight: 12, label: 'magnetizujem prvky',       run: wait(340) },
+      { weight: 10, label: 'finalizujem',              run: wait(260) },
     ];
-
     const MIN_DURATION = 2800;
 
-    function combine(...fns) {
-      return async () => { for (const f of fns) await f(); };
-    }
-    function wait(ms) {
-      return () => new Promise(r => setTimeout(r, ms + rand(-40, 80)));
-    }
+    function combine(...fns) { return async () => { for (const f of fns) await f(); }; }
+    function wait(ms) { return () => new Promise(r => setTimeout(r, ms + rand(-30, 80))); }
     function setPct(p) {
       const v = clamp(p, 0, 100);
       fill.style.width = v.toFixed(1) + '%';
@@ -44,45 +86,32 @@
     function setStatus(t) { status.textContent = t; }
 
     async function loadFonts() {
-      try {
-        if (document.fonts && document.fonts.ready) await document.fonts.ready;
-      } catch (e) {}
-    }
-    async function warmupGlass() {
-      const w = document.createElement('div');
-      w.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:200px;height:80px;backdrop-filter:blur(20px) saturate(160%);background:rgba(255,255,255,0.05);';
-      document.body.appendChild(w);
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      w.remove();
+      try { if (document.fonts?.ready) await document.fonts.ready; } catch (e) {}
     }
     async function warmupFilters() {
-      const probe = document.createElement('div');
-      probe.style.cssText = 'position:fixed;top:-9999px;width:200px;height:200px;background:linear-gradient(45deg,#fff,#888);filter:url(#glassRefract);';
-      document.body.appendChild(probe);
+      const p = document.createElement('div');
+      p.style.cssText = 'position:fixed;top:-9999px;width:200px;height:200px;background:#fff;filter:url(#glassRefract);';
+      document.body.appendChild(p);
       await new Promise(r => setTimeout(r, 120));
-      probe.remove();
+      p.remove();
     }
-
     function ticker(from, to, dur) {
       const start = performance.now();
       const id = { raf: 0, stop: false };
       const range = to - from;
       const loop = (now) => {
         if (id.stop) return;
-        const elapsed = now - start;
-        const t = 1 - Math.pow(2, -elapsed / dur);
+        const t = 1 - Math.pow(2, -(now - start) / dur);
         setPct(from + range * t * 0.97);
         id.raf = requestAnimationFrame(loop);
       };
       id.raf = requestAnimationFrame(loop);
       return id;
     }
-
     async function run() {
       const t0 = performance.now();
       setPct(0);
       setStatus(steps[0].label);
-
       let acc = 0;
       for (const step of steps) {
         setStatus(step.label);
@@ -92,33 +121,159 @@
         acc += step.weight;
         setPct(acc);
       }
-
       const elapsed = performance.now() - t0;
       if (elapsed < MIN_DURATION) await new Promise(r => setTimeout(r, MIN_DURATION - elapsed));
-
       setStatus('hotovo');
       setPct(100);
-      await new Promise(r => setTimeout(r, 480));
-
+      await new Promise(r => setTimeout(r, 420));
       boot.classList.add('is-done');
       document.dispatchEvent(new CustomEvent('boot:done'));
     }
-
     return { run };
   })();
 
-  // ─── Magnetic cursor (iPadOS-like snap) ────────────────────────────────
+  // ─── Smooth interpolated section bg + glow ───────────────────────────
+  const SectionFade = (() => {
+    let sections = [];
+    let pageCounterEm, pageCounterLabel, counterEl;
+    const labelMap = {
+      hero: 'Úvod', princip: 'Princíp', filtre: 'Filtre',
+      gramotnost: 'Gramotnosť', hranice: 'Hranice', reflektor: 'Reflektor',
+      lievik: 'Lievik', aspekty: 'Aspekty', zaver: 'Záver',
+      biblio: 'Literatúra', foot: 'Záver',
+    };
+    let lastLabel = null;
+    let ticking = false;
+
+    function init() {
+      const els = $$('.section');
+      sections = els.map(el => {
+        const bg = hexToRgb(el.dataset.bg || '#0b1d4a');
+        const glow = hexToRgb(el.dataset.glow || '#4a8fd9');
+        return { el, id: el.id, bg, glow };
+      });
+      pageCounterEm    = $('#pageNum');
+      pageCounterLabel = $('#pageLabel');
+      counterEl        = $('.counter');
+
+      measure();
+      window.addEventListener('resize', measure);
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    }
+
+    function measure() {
+      for (const s of sections) {
+        const r = s.el.getBoundingClientRect();
+        s.top = window.scrollY + r.top;
+        s.bottom = s.top + r.height;
+        s.center = s.top + r.height / 2;
+      }
+      sections.sort((a, b) => a.top - b.top);
+    }
+
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        update();
+        ticking = false;
+      });
+    }
+
+    function update() {
+      const vp = window.scrollY + window.innerHeight / 2;
+
+      // find prev (center <= vp) and next (center > vp)
+      let prev = sections[0];
+      let next = sections[sections.length - 1];
+      for (let i = 0; i < sections.length; i++) {
+        if (sections[i].center <= vp) prev = sections[i];
+        else { next = sections[i]; break; }
+      }
+      if (prev === next) {
+        next = prev;
+      }
+
+      let t = 0;
+      if (next.center !== prev.center) {
+        t = clamp((vp - prev.center) / (next.center - prev.center), 0, 1);
+      }
+      // ease the t for nicer "dwell" feel at section centers
+      const eased = easeInOutCubic(t);
+
+      const bg   = mixRgb(prev.bg,   next.bg,   eased);
+      const glow = mixRgb(prev.glow, next.glow, eased);
+
+      document.body.style.setProperty('--bg',   rgbStr(bg));
+      document.body.style.setProperty('--glow', rgbStr(glow));
+      // also update theme-color for mobile chrome
+      const tcm = document.querySelector('meta[name="theme-color"]');
+      if (tcm) tcm.setAttribute('content', rgbStr(bg));
+
+      // dominant section = nearest center
+      const dom = (t < 0.5) ? prev : next;
+      if (dom.id !== document.body.dataset.section) {
+        document.body.dataset.section = dom.id;
+      }
+
+      // page counter
+      const visibleIdx = sections.findIndex(s => s.id === dom.id);
+      const num = String(Math.min(visibleIdx + 1, 9)).padStart(2, '0');
+      const label = labelMap[dom.id] || '';
+      if (pageCounterEm && pageCounterEm.textContent !== num) {
+        // morph: animate out, swap, animate in
+        counterEl.classList.add('is-switching');
+        setTimeout(() => {
+          pageCounterEm.textContent = num;
+          if (pageCounterLabel) pageCounterLabel.textContent = label;
+          counterEl.classList.remove('is-switching');
+        }, 180);
+      } else if (label !== lastLabel && pageCounterLabel) {
+        pageCounterLabel.textContent = label;
+      }
+      lastLabel = label;
+    }
+
+    return { init };
+  })();
+
+  // ─── Glow blob: orbits with mouse + drift ────────────────────────────
+  const Glow = (() => {
+    function init() {
+      const a = $('.glow__a');
+      const b = $('.glow__b');
+      if (!a || !b) return;
+      let mx = innerWidth / 2, my = innerHeight / 2;
+      let ax = mx, ay = my;
+      let bx = mx + 200, by = my - 100;
+      let t = 0;
+      window.addEventListener('mousemove', (e) => {
+        mx = e.clientX; my = e.clientY;
+      }, { passive: true });
+      function loop() {
+        t += 0.005;
+        ax = lerp(ax, mx + Math.cos(t) * 40, 0.04);
+        ay = lerp(ay, my + Math.sin(t * 1.3) * 40, 0.04);
+        a.style.transform = `translate(${ax - innerWidth / 2}px, ${ay - innerHeight / 2}px)`;
+        bx = lerp(bx, mx + Math.cos(t * 0.7) * 160, 0.025);
+        by = lerp(by, my + Math.sin(t * 0.9) * 140, 0.025);
+        b.style.transform = `translate(${bx - innerWidth * 0.7}px, ${by - innerHeight * 0.3}px)`;
+        requestAnimationFrame(loop);
+      }
+      loop();
+    }
+    return { init };
+  })();
+
+  // ─── Magnetic cursor ─────────────────────────────────────────────────
   const Cursor = (() => {
     if (isCoarse) return { init: () => {} };
-
     const ring = $('#cursorRing');
     const dot  = $('#cursorDot');
-
     let mx = innerWidth / 2, my = innerHeight / 2;
     let rx = mx, ry = my;
-
     let snapTarget = null;
-    let snapRect = null;
     const DEFAULT = { w: 32, h: 32, br: 999 };
     let cur = { ...DEFAULT };
     let target = { ...DEFAULT };
@@ -129,50 +284,37 @@
         document.body.classList.add('has-magnetic-cursor');
         dot.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`;
       }, { passive: true });
-
       window.addEventListener('mouseleave', () => document.body.classList.remove('has-magnetic-cursor'));
       window.addEventListener('mouseenter', () => document.body.classList.add('has-magnetic-cursor'));
-
-      $$('[data-magnetic]').forEach(setupTarget);
+      $$('[data-magnetic]').forEach(setup);
       loop();
     }
-
-    function setupTarget(el) {
+    function setup(el) {
       el.addEventListener('mouseenter', () => {
         snapTarget = el;
-        snapRect = el.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
         const cs = getComputedStyle(el);
         const br = parseFloat(cs.borderTopLeftRadius) || 12;
-        target = {
-          w: snapRect.width + 12,
-          h: snapRect.height + 12,
-          br: br + 6
-        };
+        target = { w: r.width + 12, h: r.height + 12, br: br + 6 };
         ring.classList.add('is-snapped');
       });
       el.addEventListener('mouseleave', () => {
         snapTarget = null;
-        snapRect = null;
         target = { ...DEFAULT };
         ring.classList.remove('is-snapped');
       });
     }
-
     function loop() {
       let tx, ty;
       if (snapTarget) {
-        snapRect = snapTarget.getBoundingClientRect();
-        const cx = snapRect.left + snapRect.width / 2;
-        const cy = snapRect.top  + snapRect.height / 2;
-        tx = lerp(cx, mx, 0.18);
-        ty = lerp(cy, my, 0.18);
-      } else {
-        tx = mx; ty = my;
-      }
+        const r = snapTarget.getBoundingClientRect();
+        tx = lerp(r.left + r.width / 2, mx, 0.18);
+        ty = lerp(r.top + r.height / 2, my, 0.18);
+      } else { tx = mx; ty = my; }
       rx = lerp(rx, tx, 0.22);
       ry = lerp(ry, ty, 0.22);
-      cur.w  = lerp(cur.w,  target.w,  0.2);
-      cur.h  = lerp(cur.h,  target.h,  0.2);
+      cur.w = lerp(cur.w, target.w, 0.2);
+      cur.h = lerp(cur.h, target.h, 0.2);
       cur.br = lerp(cur.br, target.br, 0.2);
       ring.style.width  = cur.w  + 'px';
       ring.style.height = cur.h  + 'px';
@@ -180,20 +322,19 @@
       ring.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
       requestAnimationFrame(loop);
     }
-
     return { init };
   })();
 
-  // ─── Magnetic buttons (cards + buttons drift toward cursor) ────────────
+  // ─── Magnetic buttons ────────────────────────────────────────────────
   const MagButtons = (() => {
     function init() {
       if (isCoarse || reduced) return;
-      const els = $$('.btn[data-magnetic], .card[data-magnetic], .secret[data-magnetic], .sidenav__dot[data-magnetic]');
+      const els = $$('.btn-line[data-magnetic], .ftile[data-magnetic], .secret[data-magnetic]');
       els.forEach(el => {
         el.addEventListener('mousemove', (e) => {
           const r = el.getBoundingClientRect();
-          const dx = (e.clientX - (r.left + r.width / 2)) * 0.2;
-          const dy = (e.clientY - (r.top + r.height / 2)) * 0.2;
+          const dx = (e.clientX - (r.left + r.width / 2)) * 0.12;
+          const dy = (e.clientY - (r.top + r.height / 2)) * 0.12;
           el.style.transform = `translate(${dx}px, ${dy}px)`;
         });
         el.addEventListener('mouseleave', () => { el.style.transform = ''; });
@@ -202,114 +343,123 @@
     return { init };
   })();
 
-  // ─── Word reveal on scroll ─────────────────────────────────────────────
+  // ─── Word + generic reveal on scroll ─────────────────────────────────
   const Reveal = (() => {
     function init() {
       $$('.js-reveal-words').forEach(el => {
-        const text = el.innerHTML;
-        const wrapped = text.replace(/(\S+)/g, '<span class="w">$1</span>');
+        const html = el.innerHTML;
+        const wrapped = html.replace(/(<[^>]+>|[^\s<]+)/g, (m) => {
+          if (m.startsWith('<')) return m;
+          return `<span class="w">${m}</span>`;
+        });
         el.innerHTML = wrapped;
       });
 
       const io = new IntersectionObserver((entries) => {
         entries.forEach(e => {
           if (e.isIntersecting) {
-            const words = $$('.w', e.target);
-            words.forEach((w, i) => {
-              setTimeout(() => w.style.opacity = '1', i * 35);
-            });
-            e.target.classList.add('is-in');
+            if (e.target.classList.contains('js-reveal-words')) {
+              const ws = $$('.w', e.target);
+              ws.forEach((w, i) => setTimeout(() => w.style.opacity = '1', i * 30));
+              e.target.classList.add('is-in');
+            } else {
+              e.target.classList.add('is-in');
+            }
             io.unobserve(e.target);
           }
         });
-      }, { threshold: 0.3 });
+      }, { threshold: 0.2 });
 
-      $$('.js-reveal-words').forEach(el => io.observe(el));
+      $$('.js-reveal-words, .js-reveal').forEach(el => io.observe(el));
+
+      // section in-view trigger for fallback animations
+      const ioSec = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) e.target.classList.add('is-in-view');
+        });
+      }, { threshold: 0.15 });
+      $$('.section').forEach(s => ioSec.observe(s));
     }
     return { init };
   })();
 
-  // ─── Side nav active section ───────────────────────────────────────────
-  const SideNav = (() => {
+  // ─── Split title chars for [data-split] ──────────────────────────────
+  const Split = (() => {
     function init() {
-      const dots = $$('.sidenav__dot');
-      const map = new Map();
-      dots.forEach(d => {
-        const id = d.getAttribute('href').replace('#', '');
-        map.set(id, d);
-      });
+      $$('[data-split]').forEach(el => splitText(el));
+    }
+    return { init };
+  })();
 
-      const io = new IntersectionObserver((entries) => {
-        let best = null, bestRatio = 0;
-        for (const e of entries) {
-          if (e.isIntersecting && e.intersectionRatio > bestRatio) {
-            best = e.target;
-            bestRatio = e.intersectionRatio;
-          }
-        }
-        if (best) {
-          dots.forEach(d => d.classList.remove('is-active'));
-          const dot = map.get(best.id);
-          if (dot) dot.classList.add('is-active');
-        }
-      }, { threshold: [0.3, 0.6] });
+  // ─── Menu with View Transitions API ──────────────────────────────────
+  const Menu = (() => {
+    function init() {
+      const menu = $('#menu');
+      const btn = $('#menuBtn');
+      const close = $('#menuClose');
+      const links = $$('#menu a');
 
-      map.forEach((_, id) => {
-        const sec = document.getElementById(id);
-        if (sec) io.observe(sec);
+      const toggle = (open) => {
+        if (document.startViewTransition && !reduced) {
+          document.startViewTransition(() => {
+            menu.classList.toggle('is-open', open);
+          });
+        } else {
+          menu.classList.toggle('is-open', open);
+        }
+      };
+
+      btn.addEventListener('click', () => toggle(true));
+      close.addEventListener('click', () => toggle(false));
+      links.forEach(a => a.addEventListener('click', () => {
+        setTimeout(() => toggle(false), 220);
+      }));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') toggle(false);
       });
     }
     return { init };
   })();
 
-  // ─── 3 · Card flip ─────────────────────────────────────────────────────
+  // ─── Filter tile flip ────────────────────────────────────────────────
   const Flip = (() => {
     function init() {
-      $$('[data-flip]').forEach(card => {
-        card.addEventListener('click', () => {
-          card.classList.toggle('is-flipped');
-        });
+      $$('[data-flip]').forEach(el => {
+        el.addEventListener('click', () => el.classList.toggle('is-flipped'));
       });
     }
     return { init };
   })();
 
-  // ─── 4 · Gramotnosť — scrambled text ───────────────────────────────────
+  // ─── Gramotnosť cipher ───────────────────────────────────────────────
   const Cipher = (() => {
-    const SCRAMBLE_CHARS = 'ΞΨΦΠΣΘΩΛΔΓ◇○●◆▪▫⌖⌘∾∞◊◌◍◎';
-    let stage = null;
+    const CHARS = 'ΞΨΦΠΣΘΩΛΔΓ◇○●◆▪▫⌖⌘∾∞◊◌◍◎';
     let nodes = [];
     let reveals = 0;
-    let MAX_REVEALS = 3;
+    const MAX = 3;
 
     function init() {
-      stage = $('#cipherStage');
+      const stage = $('#cipherStage');
       if (!stage) return;
-
       const paras = $$('[data-cipher]', stage);
       paras.forEach(p => {
         const text = p.dataset.cipher;
         p.innerHTML = '';
-        const charSpans = [];
+        const arr = [];
         for (const ch of text) {
-          const span = document.createElement('span');
-          span.className = 'c';
-          if (ch === ' ') {
-            span.textContent = ' ';
-            span.classList.remove('c');
-          } else {
-            span.dataset.real = ch;
-            span.textContent = randChar();
-            span.classList.add('is-scrambled');
-            charSpans.push(span);
+          if (ch === ' ') p.appendChild(document.createTextNode(' '));
+          else {
+            const s = document.createElement('span');
+            s.className = 'c is-scrambled';
+            s.dataset.real = ch;
+            s.textContent = randChar();
+            p.appendChild(s);
+            arr.push(s);
           }
-          p.appendChild(span);
         }
-        nodes.push(charSpans);
+        nodes.push(arr);
       });
 
-      // animate scramble on idle
-      let raf = 0;
       function animate() {
         nodes.forEach(arr => {
           for (const s of arr) {
@@ -318,22 +468,18 @@
             }
           }
         });
-        raf = requestAnimationFrame(animate);
+        requestAnimationFrame(animate);
       }
       animate();
 
-      $('#cipherLearn').addEventListener('click', revealStep);
-      $('#cipherReset').addEventListener('click', resetCipher);
-      updateProgress();
+      $('#cipherLearn').addEventListener('click', step);
+      $('#cipherReset').addEventListener('click', reset);
+      updateProg();
     }
-
-    function randChar() {
-      return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
-    }
-
-    function revealStep() {
-      reveals = Math.min(reveals + 1, MAX_REVEALS);
-      const ratio = reveals / MAX_REVEALS;
+    function randChar() { return CHARS[Math.floor(Math.random() * CHARS.length)]; }
+    function step() {
+      reveals = Math.min(reveals + 1, MAX);
+      const ratio = reveals / MAX;
       nodes.forEach(arr => {
         const target = Math.floor(arr.length * ratio);
         let revealed = 0;
@@ -342,51 +488,42 @@
             setTimeout(() => {
               s.textContent = s.dataset.real;
               s.classList.remove('is-scrambled');
-            }, revealed * 20);
+            }, revealed * 18);
             revealed++;
           }
         }
       });
-      updateProgress();
+      updateProg();
     }
-
-    function resetCipher() {
+    function reset() {
       reveals = 0;
-      nodes.forEach(arr => {
-        arr.forEach(s => {
-          s.classList.add('is-scrambled');
-          s.textContent = randChar();
-        });
-      });
-      updateProgress();
+      nodes.forEach(arr => arr.forEach(s => {
+        s.classList.add('is-scrambled');
+        s.textContent = randChar();
+      }));
+      updateProg();
     }
-
-    function updateProgress() {
-      const pct = Math.round((reveals / MAX_REVEALS) * 100);
+    function updateProg() {
       const el = $('#cipherProgress');
-      if (el) el.textContent = pct;
+      if (el) el.textContent = Math.round((reveals / MAX) * 100);
     }
-
     return { init };
   })();
 
-  // ─── 5 · Hranice — secret cards ────────────────────────────────────────
+  // ─── Secret cards ────────────────────────────────────────────────────
   const Secrets = (() => {
     function init() {
       const secrets = $$('[data-secret]');
       const after = $('#hraniceAfter');
-      let openedCount = 0;
-      const total = secrets.length;
-
+      let goneCount = 0;
       secrets.forEach(s => {
         s.addEventListener('click', () => {
           if (s.classList.contains('is-open')) {
-            // second click → evaporate
             s.classList.add('is-gone');
-            openedCount++;
-            if (openedCount === total && after) {
+            goneCount++;
+            if (goneCount === secrets.length && after) {
               setTimeout(() => {
-                after.innerHTML = '„Sú to deti, ktorým boli dané odpovede na otázky, na ktoré sa nikdy nepýtali.“';
+                after.textContent = '„sú to deti, ktorým boli dané odpovede na otázky, na ktoré sa nikdy nepýtali."';
               }, 500);
             }
             return;
@@ -398,17 +535,16 @@
     return { init };
   })();
 
-  // ─── 6 · Reflektor — flashlight cursor ─────────────────────────────────
+  // ─── Reflektor flashlight ────────────────────────────────────────────
   const Reflektor = (() => {
     function init() {
       const stage = $('#reflektorStage');
-      const beam  = $('#reflektorBeam');
+      const beam = $('#reflektorBeam');
       const content = stage?.querySelector('.reflektor__content');
       if (!stage || !beam || !content) return;
 
-      // default position off-canvas
-      let bx = -200, by = -200;
-      let tx = -200, ty = -200;
+      let bx = -300, by = -300;
+      let tx = -300, ty = -300;
 
       stage.addEventListener('mousemove', (e) => {
         const r = stage.getBoundingClientRect();
@@ -430,13 +566,12 @@
       }
       loop();
 
-      // on touch, just slowly drift the beam
       if (isCoarse) {
         let t = 0;
         setInterval(() => {
           t += 0.02;
           const r = stage.getBoundingClientRect();
-          tx = r.width  / 2 + Math.cos(t) * (r.width  / 3);
+          tx = r.width / 2 + Math.cos(t) * (r.width / 3);
           ty = r.height / 2 + Math.sin(t * 1.3) * (r.height / 3);
         }, 50);
       }
@@ -444,11 +579,9 @@
     return { init };
   })();
 
-  // ─── 7 · Bourdieu funnel with text labels ──────────────────────────────
+  // ─── Bourdieu funnel ─────────────────────────────────────────────────
   const Funnel = (() => {
-    // 30 real topics divided by type
     const TOPICS = [
-      // controversy (filtered at neck 1)
       { txt: 'imigrácia',           type: 'controversy' },
       { txt: 'vakcíny',             type: 'controversy' },
       { txt: 'LGBT práva',          type: 'controversy' },
@@ -457,14 +590,12 @@
       { txt: 'feminizmus',          type: 'controversy' },
       { txt: 'eutanázia',           type: 'controversy' },
       { txt: 'potraty',             type: 'controversy' },
-      // anti-establishment (filtered at neck 2)
       { txt: 'korupcia',            type: 'interest' },
       { txt: 'majetkové priznania', type: 'interest' },
       { txt: 'oligarchovia',        type: 'interest' },
       { txt: 'daňové úniky',        type: 'interest' },
       { txt: 'lobing v parlamente', type: 'interest' },
       { txt: 'monopol médií',       type: 'interest' },
-      // omnibus (pass through)
       { txt: 'počasie',             type: 'pass' },
       { txt: 'futbal',              type: 'pass' },
       { txt: 'olympiáda',           type: 'pass' },
@@ -473,7 +604,6 @@
       { txt: 'kuchárske trendy',    type: 'pass' },
       { txt: 'turistika',           type: 'pass' },
       { txt: 'cestovanie',          type: 'pass' },
-      // mixed
       { txt: 'klimatická zmena',    type: 'controversy' },
       { txt: 'rómska otázka',       type: 'controversy' },
       { txt: 'vojenský rozpočet',   type: 'interest' },
@@ -493,34 +623,26 @@
       pool = $('#lievikPool');
       output = $('#lievikOutput');
       if (!viz) return;
-
       $('#lievikStart')?.addEventListener('click', start);
       $('#lievikReset')?.addEventListener('click', reset);
-
-      // initial render — distribute topics in pool
       renderPool();
-
-      // observer to auto-start when visible
       const io = new IntersectionObserver((entries) => {
         for (const e of entries) {
-          if (e.isIntersecting && !running && placed.length > 0 && placed[0].state === 'pool') {
+          if (e.isIntersecting && !running && placed[0]?.state === 'pool') {
             setTimeout(start, 600);
           }
         }
       }, { threshold: 0.3 });
       io.observe(viz);
     }
-
     function renderPool() {
       pool.innerHTML = '';
       output.innerHTML = '';
       placed = [];
-
       const cols = 6;
-      const items = TOPICS;
-      items.forEach((t, i) => {
+      TOPICS.forEach((t, i) => {
         const el = document.createElement('div');
-        el.className = 'topic t-' + t.type;
+        el.className = 'topic';
         el.textContent = t.txt;
         const row = Math.floor(i / cols);
         const col = i % cols;
@@ -533,141 +655,109 @@
         placed.push({ el, type: t.type, txt: t.txt, state: 'pool' });
       });
     }
-
     function start() {
       if (running) return;
       running = true;
-
-      const vizRect = viz.getBoundingClientRect();
-      const cx = vizRect.width / 2;
-      const neck1Y = vizRect.height * 0.36;
-      const neck2Y = vizRect.height * 0.74;
-      const outY   = vizRect.height * 0.88;
-
-      placed.forEach((p, i) => {
-        const delay = i * 90;
-        setTimeout(() => animate(p, cx, neck1Y, neck2Y, outY, vizRect), delay);
-      });
-
+      const vR = viz.getBoundingClientRect();
+      const cx = vR.width / 2;
+      const neck1Y = vR.height * 0.36;
+      const neck2Y = vR.height * 0.74;
+      const outY   = vR.height * 0.88;
+      placed.forEach((p, i) => setTimeout(() => animate(p, cx, neck1Y, neck2Y, outY, vR), i * 90));
       setTimeout(() => { running = false; }, placed.length * 90 + 3500);
     }
-
-    function animate(p, cx, neck1Y, neck2Y, outY, vizRect) {
+    function animate(p, cx, neck1Y, neck2Y, outY, vR) {
       const el = p.el;
-      // step 1 — gather toward neck 1 (drift to center horizontally)
-      el.style.transition = 'transform 1.1s cubic-bezier(.22,1,.36,1), opacity .8s, color .4s';
-      const startLeft = el.offsetLeft;
-      const dx1 = cx - startLeft - (el.offsetWidth / 2 + parseInt(el.style.left)) * 0;
-      // simpler: move to center using transform; reposition via transform delta
-      const startRectLeft = el.getBoundingClientRect().left - vizRect.left;
+      el.style.transition = 'transform 1.1s cubic-bezier(.22,1,.36,1), opacity .8s, color .4s, background .4s';
+      const startRectLeft = el.getBoundingClientRect().left - vR.left;
       const deltaX = cx - startRectLeft - el.offsetWidth / 2;
-      const deltaY = neck1Y - parseFloat(el.style.top || 0) - 10;
-      el.style.transform = `translate(calc(-50% + ${deltaX}px), ${deltaY}px)`;
+      const topNum = parseFloat(el.style.top || 0);
+      el.style.transform = `translate(calc(-50% + ${deltaX}px), ${neck1Y - topNum - 10}px)`;
       p.state = 'descending';
-
-      // decide at neck 1
       setTimeout(() => {
         if (p.type === 'controversy') {
-          // OUT at neck 1
           el.classList.add('is-out');
           const side = Math.random() < 0.5 ? -1 : 1;
-          const offsetX = side * (vizRect.width * 0.35 + Math.random() * 40);
-          const offsetY = neck1Y + Math.random() * 30;
-          el.style.transform = `translate(calc(-50% + ${deltaX + offsetX}px), ${offsetY}px)`;
+          el.style.transform = `translate(calc(-50% + ${deltaX + side * (vR.width * 0.35 + Math.random() * 40)}px), ${neck1Y + Math.random() * 30}px)`;
           p.state = 'out1';
           return;
         }
-        // continue to neck 2
-        const deltaY2 = neck2Y - parseFloat(el.style.top || 0) - 10;
-        el.style.transform = `translate(calc(-50% + ${deltaX}px), ${deltaY2}px)`;
+        el.style.transform = `translate(calc(-50% + ${deltaX}px), ${neck2Y - topNum - 10}px)`;
         p.state = 'between';
       }, 1100);
-
-      // decide at neck 2
       setTimeout(() => {
         if (p.state === 'out1') return;
         if (p.type === 'interest') {
           el.classList.add('is-out');
           const side = Math.random() < 0.5 ? -1 : 1;
-          const offsetX = side * (vizRect.width * 0.32 + Math.random() * 40);
-          const offsetY = neck2Y + Math.random() * 28;
-          el.style.transform = `translate(calc(-50% + ${deltaX + offsetX}px), ${offsetY}px)`;
+          el.style.transform = `translate(calc(-50% + ${deltaX + side * (vR.width * 0.32 + Math.random() * 40)}px), ${neck2Y + Math.random() * 28}px)`;
           p.state = 'out2';
           return;
         }
-        // pass — descend to output
-        const deltaY3 = outY - parseFloat(el.style.top || 0) - 6;
         el.classList.add('is-pass');
-        el.style.transform = `translate(calc(-50% + ${deltaX}px), ${deltaY3}px)`;
+        el.style.transform = `translate(calc(-50% + ${deltaX}px), ${outY - topNum - 6}px)`;
         p.state = 'pass';
       }, 2300);
     }
-
     function reset() {
       running = false;
       renderPool();
     }
-
     return { init };
   })();
 
-  // ─── 8 · Time slider for aspekty ───────────────────────────────────────
+  // ─── Time slider ─────────────────────────────────────────────────────
   const TimeSlider = (() => {
     function init() {
-      const slider = $('#timeSlider');
+      const s = $('#timeSlider');
       const val = $('#timeValue');
       const note = $('#timeNote');
       const paras = $$('#topicContent p');
-      if (!slider) return;
-
+      if (!s) return;
       const apply = (v) => {
         val.textContent = v;
-        // 60 min → all 5 visible, 3 min → only 1 (title only)
         const keep = Math.max(1, Math.round(((v - 3) / (60 - 3)) * paras.length));
-        paras.forEach((p, i) => {
-          p.classList.toggle('is-cut', i >= keep);
-        });
-        // note text
-        if (v >= 50)      note.textContent = 'Plný kontext, plná hĺbka.';
-        else if (v >= 35) note.textContent = 'Pohodlne, ale ide o jednu z viacerých dimenzií.';
-        else if (v >= 20) note.textContent = 'Kompromis. Dôsledky musíme skrátiť.';
-        else if (v >= 10) note.textContent = 'Z fenoménu zostávajú len fakty. Dekontextualizácia.';
-        else              note.textContent = 'Len nadpis. „Encyklopedická vedomosť“ bez sveta.';
+        paras.forEach((p, i) => p.classList.toggle('is-cut', i >= keep));
+        if (v >= 50)      note.textContent = 'plný kontext, plná hĺbka';
+        else if (v >= 35) note.textContent = 'pohodlne, ale jedna z viacerých dimenzií';
+        else if (v >= 20) note.textContent = 'kompromis. dôsledky musíme skrátiť';
+        else if (v >= 10) note.textContent = 'z fenoménu zostávajú len fakty. dekontextualizácia';
+        else              note.textContent = 'len nadpis. encyklopedická vedomosť bez sveta';
       };
-
-      slider.addEventListener('input', () => apply(slider.value));
-      apply(slider.value);
+      s.addEventListener('input', () => apply(s.value));
+      apply(s.value);
     }
     return { init };
   })();
 
-  // ─── Footer countdown (easter egg) ─────────────────────────────────────
-  const FootCountdown = (() => {
+  // ─── Countdown ───────────────────────────────────────────────────────
+  const Countdown = (() => {
     const target = new Date('2026-05-23T23:59:59');
-
     function tick() {
-      const el = $('#footEgg');
-      if (!el) return;
-      const now = new Date();
-      let diff = target - now;
+      const diff = target - new Date();
       if (diff < 0) {
-        el.textContent = 'hodnotenie prebehlo';
+        setText('topCount', 'hodnotenie prebehlo');
+        setText('footCd',   'hodnotenie prebehlo');
         return;
       }
-      const sec  = Math.floor(diff / 1000);
-      const days = Math.floor(sec / 86400);
-      const hrs  = Math.floor((sec % 86400) / 3600);
-      const mins = Math.floor((sec % 3600) / 60);
-      el.textContent = `${days}d ${String(hrs).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
+      const sec = Math.floor(diff / 1000);
+      const d = Math.floor(sec / 86400);
+      const h = Math.floor((sec % 86400) / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      const pad = (n) => String(n).padStart(2, '0');
+      setText('topCount', `${d}d ${pad(h)}h ${pad(m)}m`);
+      setText('footCd',   `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s`);
     }
-    function init() {
-      tick();
-      setInterval(tick, 30 * 1000);
+    function setText(id, t) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = t;
     }
+    function init() { tick(); setInterval(tick, 1000); }
     return { init };
   })();
 
-  // ─── Anchor smooth scroll with offset ──────────────────────────────────
+  // ─── Anchor smooth scroll ────────────────────────────────────────────
   const Anchors = (() => {
     function init() {
       $$('a[href^="#"]').forEach(a => {
@@ -685,19 +775,22 @@
     return { init };
   })();
 
-  // ─── Init ──────────────────────────────────────────────────────────────
+  // ─── Init ────────────────────────────────────────────────────────────
   function start() {
+    Split.init();
     Cursor.init();
     MagButtons.init();
     Reveal.init();
-    SideNav.init();
+    SectionFade.init();
+    Glow.init();
+    Menu.init();
     Flip.init();
     Cipher.init();
     Secrets.init();
     Reflektor.init();
     Funnel.init();
     TimeSlider.init();
-    FootCountdown.init();
+    Countdown.init();
     Anchors.init();
     Boot.run();
   }
@@ -707,5 +800,4 @@
   } else {
     start();
   }
-
 })();

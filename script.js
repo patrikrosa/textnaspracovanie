@@ -1,6 +1,7 @@
 (function () {
   'use strict';
 
+  // shorthand selectors. classic pattern.
   const $  = (s, c = document) => c.querySelector(s);
   const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
   const lerp  = (a, b, t) => a + (b - a) * t;
@@ -10,7 +11,6 @@
   const isCoarse = window.matchMedia('(hover: none)').matches;
   const reduced  = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // easing
   const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
   // ─── Color utils ─────────────────────────────────────────────────────
@@ -30,25 +30,37 @@
   }
   const rgbStr = (c) => `rgb(${c.r}, ${c.g}, ${c.b})`;
 
-  // ─── Split text (preserves children like <em>) ───────────────────────
+  // ─── Split text — wraps WORDS (inline-block nowrap) then chars
+  // (so the browser can't break mid-word; chars still animate individually)
   function splitText(root) {
-    const ii = { v: 0 };
+    let ii = 0;
     function walk(parent) {
-      const kids = [...parent.childNodes];
-      for (const child of kids) {
-        if (child.nodeType === Node.TEXT_NODE) {
+      for (const child of [...parent.childNodes]) {
+        if (child.nodeType === 3 /* TEXT_NODE */) {
           const text = child.textContent;
+          if (!text) continue;
+          const tokens = text.split(/(\s+)/);
           const frag = document.createDocumentFragment();
-          for (const ch of text) {
-            const s = document.createElement('span');
-            s.className = 'ch';
-            s.style.setProperty('--i', ii.v++);
-            s.textContent = ch === ' ' ? ' ' : ch;
-            frag.appendChild(s);
+          for (const token of tokens) {
+            if (!token) continue;
+            if (/^\s+$/.test(token)) {
+              frag.appendChild(document.createTextNode(token));
+            } else {
+              const word = document.createElement('span');
+              word.className = 'word';
+              for (const ch of token) {
+                const s = document.createElement('span');
+                s.className = 'ch';
+                s.style.setProperty('--i', ii++);
+                s.textContent = ch;
+                word.appendChild(s);
+              }
+              frag.appendChild(word);
+            }
           }
           parent.insertBefore(frag, child);
           parent.removeChild(child);
-        } else if (child.nodeType === Node.ELEMENT_NODE) {
+        } else if (child.nodeType === 1 /* ELEMENT_NODE */) {
           if (child.tagName === 'BR') continue;
           walk(child);
         }
@@ -86,7 +98,7 @@
     function setStatus(t) { status.textContent = t; }
 
     async function loadFonts() {
-      try { if (document.fonts?.ready) await document.fonts.ready; } catch (e) {}
+      try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
     }
     async function warmupFilters() {
       const p = document.createElement('div');
@@ -132,7 +144,7 @@
     return { run };
   })();
 
-  // ─── Smooth interpolated section bg + glow ───────────────────────────
+  // ─── Smooth section bg + glow interpolation ──────────────────────────
   const SectionFade = (() => {
     let sections = [];
     let pageCounterEm, pageCounterLabel, counterEl;
@@ -142,32 +154,37 @@
       lievik: 'Lievik', aspekty: 'Aspekty', zaver: 'Záver',
       biblio: 'Literatúra', foot: 'Záver',
     };
-    let lastLabel = null;
+    let lastDomId = null;
     let ticking = false;
+    let themeMeta = null;
+    let lastBgString = '';
 
     function init() {
       const els = $$('.section');
-      sections = els.map(el => {
-        const bg = hexToRgb(el.dataset.bg || '#0b1d4a');
-        const glow = hexToRgb(el.dataset.glow || '#4a8fd9');
-        return { el, id: el.id, bg, glow };
-      });
+      sections = els.map(el => ({
+        el, id: el.id,
+        bg: hexToRgb(el.dataset.bg || '#0b1d4a'),
+        glow: hexToRgb(el.dataset.glow || '#4a8fd9'),
+      }));
       pageCounterEm    = $('#pageNum');
       pageCounterLabel = $('#pageLabel');
       counterEl        = $('.counter');
+      themeMeta = document.querySelector('meta[name="theme-color"]');
 
       measure();
-      window.addEventListener('resize', measure);
+      // remeasure when fonts/images change layout
+      window.addEventListener('load', measure);
+      window.addEventListener('resize', () => { measure(); update(); });
       window.addEventListener('scroll', onScroll, { passive: true });
-      onScroll();
+      update();
     }
 
     function measure() {
+      // cache offsetTop + height once. cheaper than getBoundingClientRect on every frame.
       for (const s of sections) {
-        const r = s.el.getBoundingClientRect();
-        s.top = window.scrollY + r.top;
-        s.bottom = s.top + r.height;
-        s.center = s.top + r.height / 2;
+        s.top    = s.el.offsetTop;
+        s.height = s.el.offsetHeight;
+        s.center = s.top + s.height / 2;
       }
       sections.sort((a, b) => a.top - b.top);
     }
@@ -175,31 +192,24 @@
     function onScroll() {
       if (ticking) return;
       ticking = true;
-      requestAnimationFrame(() => {
-        update();
-        ticking = false;
-      });
+      requestAnimationFrame(() => { update(); ticking = false; });
     }
 
     function update() {
       const vp = window.scrollY + window.innerHeight / 2;
 
-      // find prev (center <= vp) and next (center > vp)
       let prev = sections[0];
       let next = sections[sections.length - 1];
       for (let i = 0; i < sections.length; i++) {
         if (sections[i].center <= vp) prev = sections[i];
         else { next = sections[i]; break; }
       }
-      if (prev === next) {
-        next = prev;
-      }
+      if (prev === next) next = prev;
 
       let t = 0;
       if (next.center !== prev.center) {
         t = clamp((vp - prev.center) / (next.center - prev.center), 0, 1);
       }
-      // ease the t for nicer "dwell" feel at section centers
       const eased = easeInOutCubic(t);
 
       const bg   = mixRgb(prev.bg,   next.bg,   eased);
@@ -207,38 +217,38 @@
 
       document.body.style.setProperty('--bg',   rgbStr(bg));
       document.body.style.setProperty('--glow', rgbStr(glow));
-      // also update theme-color for mobile chrome
-      const tcm = document.querySelector('meta[name="theme-color"]');
-      if (tcm) tcm.setAttribute('content', rgbStr(bg));
 
-      // dominant section = nearest center
+      const bgStr = rgbStr(bg);
+      if (themeMeta && bgStr !== lastBgString) {
+        lastBgString = bgStr;
+        themeMeta.setAttribute('content', bgStr);
+      }
+
       const dom = (t < 0.5) ? prev : next;
-      if (dom.id !== document.body.dataset.section) {
+      if (dom.id !== lastDomId) {
+        lastDomId = dom.id;
         document.body.dataset.section = dom.id;
-      }
 
-      // page counter
-      const visibleIdx = sections.findIndex(s => s.id === dom.id);
-      const num = String(Math.min(visibleIdx + 1, 9)).padStart(2, '0');
-      const label = labelMap[dom.id] || '';
-      if (pageCounterEm && pageCounterEm.textContent !== num) {
-        // morph: animate out, swap, animate in
-        counterEl.classList.add('is-switching');
-        setTimeout(() => {
-          pageCounterEm.textContent = num;
-          if (pageCounterLabel) pageCounterLabel.textContent = label;
-          counterEl.classList.remove('is-switching');
-        }, 180);
-      } else if (label !== lastLabel && pageCounterLabel) {
-        pageCounterLabel.textContent = label;
+        const idx = sections.findIndex(s => s.id === dom.id);
+        const num = String(Math.min(idx + 1, 9)).padStart(2, '0');
+        const label = labelMap[dom.id] || '';
+        if (pageCounterEm && pageCounterEm.textContent !== num) {
+          counterEl.classList.add('is-switching');
+          setTimeout(() => {
+            pageCounterEm.textContent = num;
+            if (pageCounterLabel) pageCounterLabel.textContent = label;
+            counterEl.classList.remove('is-switching');
+          }, 180);
+        } else if (pageCounterLabel) {
+          pageCounterLabel.textContent = label;
+        }
       }
-      lastLabel = label;
     }
 
-    return { init };
+    return { init, measure };
   })();
 
-  // ─── Glow blob: orbits with mouse + drift ────────────────────────────
+  // ─── Glow blob ───────────────────────────────────────────────────────
   const Glow = (() => {
     function init() {
       const a = $('.glow__a');
@@ -248,13 +258,19 @@
       let ax = mx, ay = my;
       let bx = mx + 200, by = my - 100;
       let t = 0;
+      let dirty = true;
+
       window.addEventListener('mousemove', (e) => {
         mx = e.clientX; my = e.clientY;
+        dirty = true;
       }, { passive: true });
+
       function loop() {
         t += 0.005;
-        ax = lerp(ax, mx + Math.cos(t) * 40, 0.04);
-        ay = lerp(ay, my + Math.sin(t * 1.3) * 40, 0.04);
+        const targetAX = mx + Math.cos(t) * 40;
+        const targetAY = my + Math.sin(t * 1.3) * 40;
+        ax = lerp(ax, targetAX, 0.04);
+        ay = lerp(ay, targetAY, 0.04);
         a.style.transform = `translate(${ax - innerWidth / 2}px, ${ay - innerHeight / 2}px)`;
         bx = lerp(bx, mx + Math.cos(t * 0.7) * 160, 0.025);
         by = lerp(by, my + Math.sin(t * 0.9) * 140, 0.025);
@@ -281,21 +297,31 @@
     function init() {
       window.addEventListener('mousemove', (e) => {
         mx = e.clientX; my = e.clientY;
-        document.body.classList.add('has-magnetic-cursor');
+        if (!document.body.classList.contains('has-magnetic-cursor')) {
+          document.body.classList.add('has-magnetic-cursor');
+        }
+        // dot moves with mouse, no lerp — instant feel
         dot.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`;
       }, { passive: true });
+
       window.addEventListener('mouseleave', () => document.body.classList.remove('has-magnetic-cursor'));
       window.addEventListener('mouseenter', () => document.body.classList.add('has-magnetic-cursor'));
+
       $$('[data-magnetic]').forEach(setup);
       loop();
     }
+
     function setup(el) {
+      // cache border radius once per element (was computing every hover before)
+      let cachedBr = null;
       el.addEventListener('mouseenter', () => {
         snapTarget = el;
         const r = el.getBoundingClientRect();
-        const cs = getComputedStyle(el);
-        const br = parseFloat(cs.borderTopLeftRadius) || 12;
-        target = { w: r.width + 12, h: r.height + 12, br: br + 6 };
+        if (cachedBr === null) {
+          const cs = getComputedStyle(el);
+          cachedBr = parseFloat(cs.borderTopLeftRadius) || 12;
+        }
+        target = { w: r.width + 12, h: r.height + 12, br: cachedBr + 6 };
         ring.classList.add('is-snapped');
       });
       el.addEventListener('mouseleave', () => {
@@ -313,8 +339,8 @@
       } else { tx = mx; ty = my; }
       rx = lerp(rx, tx, 0.22);
       ry = lerp(ry, ty, 0.22);
-      cur.w = lerp(cur.w, target.w, 0.2);
-      cur.h = lerp(cur.h, target.h, 0.2);
+      cur.w  = lerp(cur.w,  target.w,  0.2);
+      cur.h  = lerp(cur.h,  target.h,  0.2);
       cur.br = lerp(cur.br, target.br, 0.2);
       ring.style.width  = cur.w  + 'px';
       ring.style.height = cur.h  + 'px';
@@ -329,7 +355,7 @@
   const MagButtons = (() => {
     function init() {
       if (isCoarse || reduced) return;
-      const els = $$('.btn-line[data-magnetic], .ftile[data-magnetic], .secret[data-magnetic]');
+      const els = $$('.btn-line[data-magnetic], .btn-pill[data-magnetic], .ftile[data-magnetic], .secret[data-magnetic]');
       els.forEach(el => {
         el.addEventListener('mousemove', (e) => {
           const r = el.getBoundingClientRect();
@@ -346,8 +372,10 @@
   // ─── Word + generic reveal on scroll ─────────────────────────────────
   const Reveal = (() => {
     function init() {
+      // word-level reveal (for paragraphs)
       $$('.js-reveal-words').forEach(el => {
         const html = el.innerHTML;
+        // wraps non-tag, non-whitespace tokens. preserves inline tags.
         const wrapped = html.replace(/(<[^>]+>|[^\s<]+)/g, (m) => {
           if (m.startsWith('<')) return m;
           return `<span class="w">${m}</span>`;
@@ -372,7 +400,7 @@
 
       $$('.js-reveal-words, .js-reveal').forEach(el => io.observe(el));
 
-      // section in-view trigger for fallback animations
+      // section in-view marker — used by fallback animations
       const ioSec = new IntersectionObserver((entries) => {
         entries.forEach(e => {
           if (e.isIntersecting) e.target.classList.add('is-in-view');
@@ -383,7 +411,7 @@
     return { init };
   })();
 
-  // ─── Split title chars for [data-split] ──────────────────────────────
+  // ─── Split titles ────────────────────────────────────────────────────
   const Split = (() => {
     function init() {
       $$('[data-split]').forEach(el => splitText(el));
@@ -391,7 +419,7 @@
     return { init };
   })();
 
-  // ─── Menu with View Transitions API ──────────────────────────────────
+  // ─── Menu (View Transitions API when available) ──────────────────────
   const Menu = (() => {
     function init() {
       const menu = $('#menu');
@@ -421,7 +449,7 @@
     return { init };
   })();
 
-  // ─── Filter tile flip ────────────────────────────────────────────────
+  // ─── Filter flip ─────────────────────────────────────────────────────
   const Flip = (() => {
     function init() {
       $$('[data-flip]').forEach(el => {
@@ -431,12 +459,17 @@
     return { init };
   })();
 
-  // ─── Gramotnosť cipher ───────────────────────────────────────────────
+  // ─── Cipher — throttled shuffle, pauses off-screen, stops when revealed
+  // (was running rAF every frame on ~300 chars, that was wasteful)
   const Cipher = (() => {
     const CHARS = 'ΞΨΦΠΣΘΩΛΔΓ◇○●◆▪▫⌖⌘∾∞◊◌◍◎';
     let nodes = [];
+    let scrambled = new Set();
     let reveals = 0;
     const MAX = 3;
+    let visible = false;
+    let lastTick = 0;
+    let stopped = false;
 
     function init() {
       const stage = $('#cipherStage');
@@ -446,37 +479,54 @@
         const text = p.dataset.cipher;
         p.innerHTML = '';
         const arr = [];
-        for (const ch of text) {
-          if (ch === ' ') p.appendChild(document.createTextNode(' '));
-          else {
-            const s = document.createElement('span');
-            s.className = 'c is-scrambled';
-            s.dataset.real = ch;
-            s.textContent = randChar();
-            p.appendChild(s);
-            arr.push(s);
+        // tokenize so each word is a non-breaking unit
+        const tokens = text.split(/(\s+)/);
+        for (const token of tokens) {
+          if (!token) continue;
+          if (/^\s+$/.test(token)) {
+            p.appendChild(document.createTextNode(token));
+          } else {
+            const word = document.createElement('span');
+            word.className = 'word';
+            for (const ch of token) {
+              const s = document.createElement('span');
+              s.className = 'c is-scrambled';
+              s.dataset.real = ch;
+              s.textContent = randChar();
+              word.appendChild(s);
+              arr.push(s);
+              scrambled.add(s);
+            }
+            p.appendChild(word);
           }
         }
         nodes.push(arr);
       });
 
-      function animate() {
-        nodes.forEach(arr => {
-          for (const s of arr) {
-            if (s.classList.contains('is-scrambled') && Math.random() < 0.06) {
-              s.textContent = randChar();
-            }
+      // pause/resume based on viewport visibility
+      const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.05 });
+      io.observe(stage);
+
+      function animate(now) {
+        if (stopped) return;
+        if (visible && scrambled.size > 0 && now - lastTick > 90) {
+          lastTick = now;
+          // iterate Set — random sample to keep it from feeling too aggressive
+          for (const s of scrambled) {
+            if (Math.random() < 0.18) s.textContent = randChar();
           }
-        });
+        }
         requestAnimationFrame(animate);
       }
-      animate();
+      requestAnimationFrame(animate);
 
       $('#cipherLearn').addEventListener('click', step);
       $('#cipherReset').addEventListener('click', reset);
       updateProg();
     }
+
     function randChar() { return CHARS[Math.floor(Math.random() * CHARS.length)]; }
+
     function step() {
       reveals = Math.min(reveals + 1, MAX);
       const ratio = reveals / MAX;
@@ -488,6 +538,7 @@
             setTimeout(() => {
               s.textContent = s.dataset.real;
               s.classList.remove('is-scrambled');
+              scrambled.delete(s);
             }, revealed * 18);
             revealed++;
           }
@@ -495,18 +546,24 @@
       });
       updateProg();
     }
+
     function reset() {
       reveals = 0;
       nodes.forEach(arr => arr.forEach(s => {
-        s.classList.add('is-scrambled');
+        if (!s.classList.contains('is-scrambled')) {
+          s.classList.add('is-scrambled');
+          scrambled.add(s);
+        }
         s.textContent = randChar();
       }));
       updateProg();
     }
+
     function updateProg() {
       const el = $('#cipherProgress');
       if (el) el.textContent = Math.round((reveals / MAX) * 100);
     }
+
     return { init };
   })();
 
@@ -515,13 +572,13 @@
     function init() {
       const secrets = $$('[data-secret]');
       const after = $('#hraniceAfter');
-      let goneCount = 0;
+      let gone = 0;
       secrets.forEach(s => {
         s.addEventListener('click', () => {
           if (s.classList.contains('is-open')) {
             s.classList.add('is-gone');
-            goneCount++;
-            if (goneCount === secrets.length && after) {
+            gone++;
+            if (gone === secrets.length && after) {
               setTimeout(() => {
                 after.textContent = '„sú to deti, ktorým boli dané odpovede na otázky, na ktoré sa nikdy nepýtali."';
               }, 500);
@@ -535,16 +592,20 @@
     return { init };
   })();
 
-  // ─── Reflektor flashlight ────────────────────────────────────────────
+  // ─── Reflektor — pauses when off-screen ──────────────────────────────
   const Reflektor = (() => {
     function init() {
       const stage = $('#reflektorStage');
-      const beam = $('#reflektorBeam');
-      const content = stage?.querySelector('.reflektor__content');
+      const beam  = $('#reflektorBeam');
+      const content = stage && stage.querySelector('.reflektor__content');
       if (!stage || !beam || !content) return;
 
       let bx = -300, by = -300;
       let tx = -300, ty = -300;
+      let visible = false;
+
+      const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.05 });
+      io.observe(stage);
 
       stage.addEventListener('mousemove', (e) => {
         const r = stage.getBoundingClientRect();
@@ -557,11 +618,13 @@
       });
 
       function loop() {
-        bx = lerp(bx, tx, 0.22);
-        by = lerp(by, ty, 0.22);
-        beam.style.transform = `translate(${bx}px, ${by}px) translate(-50%, -50%)`;
-        content.style.setProperty('--bx', bx + 'px');
-        content.style.setProperty('--by', by + 'px');
+        if (visible) {
+          bx = lerp(bx, tx, 0.22);
+          by = lerp(by, ty, 0.22);
+          beam.style.transform = `translate(${bx}px, ${by}px) translate(-50%, -50%)`;
+          content.style.setProperty('--bx', bx + 'px');
+          content.style.setProperty('--by', by + 'px');
+        }
         requestAnimationFrame(loop);
       }
       loop();
@@ -569,6 +632,7 @@
       if (isCoarse) {
         let t = 0;
         setInterval(() => {
+          if (!visible) return;
           t += 0.02;
           const r = stage.getBoundingClientRect();
           tx = r.width / 2 + Math.cos(t) * (r.width / 3);
@@ -580,6 +644,8 @@
   })();
 
   // ─── Bourdieu funnel ─────────────────────────────────────────────────
+  // distributes passes across the output bar; spreads rejected items
+  // across their side-zones so they don't overlap on top of each other.
   const Funnel = (() => {
     const TOPICS = [
       { txt: 'imigrácia',           type: 'controversy' },
@@ -623,18 +689,19 @@
       pool = $('#lievikPool');
       output = $('#lievikOutput');
       if (!viz) return;
-      $('#lievikStart')?.addEventListener('click', start);
-      $('#lievikReset')?.addEventListener('click', reset);
+      $('#lievikStart') && $('#lievikStart').addEventListener('click', start);
+      $('#lievikReset') && $('#lievikReset').addEventListener('click', reset);
       renderPool();
       const io = new IntersectionObserver((entries) => {
         for (const e of entries) {
-          if (e.isIntersecting && !running && placed[0]?.state === 'pool') {
+          if (e.isIntersecting && !running && placed[0] && placed[0].state === 'pool') {
             setTimeout(start, 600);
           }
         }
       }, { threshold: 0.3 });
       io.observe(viz);
     }
+
     function renderPool() {
       pool.innerHTML = '';
       output.innerHTML = '';
@@ -648,13 +715,14 @@
         const col = i % cols;
         const cellX = (100 / cols) * col + (100 / cols) / 2;
         const cellY = row * 28 + 18;
-        el.style.left = `calc(${cellX}% - 0px)`;
+        el.style.left = cellX + '%';
         el.style.top = cellY + 'px';
         el.style.transform = 'translate(-50%, 0)';
         pool.appendChild(el);
         placed.push({ el, type: t.type, txt: t.txt, state: 'pool' });
       });
     }
+
     function start() {
       if (running) return;
       running = true;
@@ -663,46 +731,83 @@
       const neck1Y = vR.height * 0.36;
       const neck2Y = vR.height * 0.74;
       const outY   = vR.height * 0.88;
+
+      // pre-assign slot indices so items don't overlap on landing.
+      // pass topics → spread along the output bar
+      const passList = placed.filter(p => p.type === 'pass');
+      passList.forEach((p, i) => { p.passSlot = i; p.passCount = passList.length; });
+
+      // controversies → split left/right by index, vertical slots within each side
+      const cList = placed.filter(p => p.type === 'controversy');
+      const cLeft  = cList.filter((_, i) => i % 2 === 0);
+      const cRight = cList.filter((_, i) => i % 2 === 1);
+      cLeft .forEach((p, i) => { p.side = -1; p.sideSlot = i; p.sideCount = cLeft.length; });
+      cRight.forEach((p, i) => { p.side =  1; p.sideSlot = i; p.sideCount = cRight.length; });
+
+      // interests at neck 2 → similar split
+      const iList = placed.filter(p => p.type === 'interest');
+      const iLeft  = iList.filter((_, i) => i % 2 === 0);
+      const iRight = iList.filter((_, i) => i % 2 === 1);
+      iLeft .forEach((p, i) => { p.side = -1; p.sideSlot = i; p.sideCount = iLeft.length; });
+      iRight.forEach((p, i) => { p.side =  1; p.sideSlot = i; p.sideCount = iRight.length; });
+
       placed.forEach((p, i) => setTimeout(() => animate(p, cx, neck1Y, neck2Y, outY, vR), i * 90));
       setTimeout(() => { running = false; }, placed.length * 90 + 3500);
     }
+
     function animate(p, cx, neck1Y, neck2Y, outY, vR) {
       const el = p.el;
       el.style.transition = 'transform 1.1s cubic-bezier(.22,1,.36,1), opacity .8s, color .4s, background .4s';
       const startRectLeft = el.getBoundingClientRect().left - vR.left;
-      const deltaX = cx - startRectLeft - el.offsetWidth / 2;
+      const elCenterX = startRectLeft + el.offsetWidth / 2; // current center
       const topNum = parseFloat(el.style.top || 0);
-      el.style.transform = `translate(calc(-50% + ${deltaX}px), ${neck1Y - topNum - 10}px)`;
+
+      // step 1 — converge to center, drop to neck 1 line
+      const deltaToCenter = cx - elCenterX;
+      el.style.transform = 'translate(calc(-50% + ' + deltaToCenter + 'px), ' + (neck1Y - topNum - 10) + 'px)';
       p.state = 'descending';
+
+      // step 2 — decision at neck 1
       setTimeout(() => {
         if (p.type === 'controversy') {
           el.classList.add('is-out');
-          const side = Math.random() < 0.5 ? -1 : 1;
-          el.style.transform = `translate(calc(-50% + ${deltaX + side * (vR.width * 0.35 + Math.random() * 40)}px), ${neck1Y + Math.random() * 30}px)`;
+          // place in left/right reject zone, with vertical slot to avoid overlap
+          const zoneX = p.side === -1 ? vR.width * 0.16 : vR.width * 0.84;
+          const slotY = neck1Y + 14 + (p.sideSlot - (p.sideCount - 1) / 2) * 24;
+          el.style.transform = 'translate(calc(-50% + ' + (zoneX - elCenterX) + 'px), ' + (slotY - topNum) + 'px)';
           p.state = 'out1';
           return;
         }
-        el.style.transform = `translate(calc(-50% + ${deltaX}px), ${neck2Y - topNum - 10}px)`;
+        // continue to neck 2 line, still centered
+        el.style.transform = 'translate(calc(-50% + ' + deltaToCenter + 'px), ' + (neck2Y - topNum - 10) + 'px)';
         p.state = 'between';
       }, 1100);
+
+      // step 3 — decision at neck 2
       setTimeout(() => {
         if (p.state === 'out1') return;
         if (p.type === 'interest') {
           el.classList.add('is-out');
-          const side = Math.random() < 0.5 ? -1 : 1;
-          el.style.transform = `translate(calc(-50% + ${deltaX + side * (vR.width * 0.32 + Math.random() * 40)}px), ${neck2Y + Math.random() * 28}px)`;
+          const zoneX = p.side === -1 ? vR.width * 0.14 : vR.width * 0.86;
+          const slotY = neck2Y + 12 + (p.sideSlot - (p.sideCount - 1) / 2) * 24;
+          el.style.transform = 'translate(calc(-50% + ' + (zoneX - elCenterX) + 'px), ' + (slotY - topNum) + 'px)';
           p.state = 'out2';
           return;
         }
+        // pass — distribute along output bar (so they don't stack on top of each other)
         el.classList.add('is-pass');
-        el.style.transform = `translate(calc(-50% + ${deltaX}px), ${outY - topNum - 6}px)`;
+        const spread = (vR.width * 0.7) / Math.max(p.passCount - 1, 1);
+        const passX = cx + (p.passSlot - (p.passCount - 1) / 2) * spread;
+        el.style.transform = 'translate(calc(-50% + ' + (passX - elCenterX) + 'px), ' + (outY - topNum - 6) + 'px)';
         p.state = 'pass';
       }, 2300);
     }
+
     function reset() {
       running = false;
       renderPool();
     }
+
     return { init };
   })();
 
@@ -746,8 +851,8 @@
       const m = Math.floor((sec % 3600) / 60);
       const s = sec % 60;
       const pad = (n) => String(n).padStart(2, '0');
-      setText('topCount', `${d}d ${pad(h)}h ${pad(m)}m`);
-      setText('footCd',   `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s`);
+      setText('topCount', d + 'd ' + pad(h) + 'h ' + pad(m) + 'm');
+      setText('footCd',   d + 'd ' + pad(h) + 'h ' + pad(m) + 'm ' + pad(s) + 's');
     }
     function setText(id, t) {
       const el = document.getElementById(id);
@@ -793,6 +898,11 @@
     Countdown.init();
     Anchors.init();
     Boot.run();
+
+    // re-measure after boot finishes (in case fonts shifted layout)
+    document.addEventListener('boot:done', () => {
+      setTimeout(() => SectionFade.measure(), 300);
+    });
   }
 
   if (document.readyState === 'loading') {
